@@ -1,0 +1,34 @@
+version: v2
+managed:
+  enabled: true
+  disable:
+    - module: buf.build/googleapis/googleapis
+      file_option: go_package
+    - module: buf.build/grpc-ecosystem/grpc-gateway
+      file_option: go_package
+  override:
+    - file_option: go_package_prefix
+      value: github.com/dv-net/dv-processing/api
+plugins:
+  - local: protoc-gen-go
+    out: api
+    opt: paths=source_relative
+  - local: protoc-gen-connect-go
+    out: api
+    opt: paths=source_relative
+  - local: protoc-gen-doc
+    out: api
+    strategy: all
+    opt: markdown,README.md
+  - local: protoc-gen-openapiv2
+    out: api
+    strategy: all
+    opt:
+      - allow_merge=true
+      - merge_file_name=api
+      - generate_unbound_methods=true
+      - include_package_in_tags=false
+      - openapi_naming_strategy=fqn
+      - logtostderr=true
+      - visibility_restriction_selectors=PREVIEW
+      - json_names_for_fields=false

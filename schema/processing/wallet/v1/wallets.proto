@@ -1,0 +1,144 @@
+syntax = "proto3";
+package processing.wallet.v1;
+
+import "processing/common/v1/common.proto";
+
+option go_package = "api/processing/wallet/v1";
+
+// Service which interacts with wallets
+service WalletService {
+  // Get owner hot wallets
+  rpc GetOwnerHotWallets(GetOwnerHotWalletsRequest)
+      returns (GetOwnerHotWalletsResponse);
+  // Get owner cold active wallet list
+  rpc GetOwnerColdWallets(GetOwnerColdWalletsRequest)
+      returns (GetOwnerColdWalletsResponse);
+  // Get owner processing wallets
+  rpc GetOwnerProcessingWallets(GetOwnerProcessingWalletsRequest)
+      returns (GetOwnerProcessingWalletsResponse);
+  // Attach owner cold wallets
+  rpc AttachOwnerColdWallets(AttachOwnerColdWalletsRequest)
+      returns (AttachOwnerColdWalletsResponse);
+  // Mark a dirty hot wallet
+  rpc MarkDirtyHotWallet(MarkDirtyHotWalletRequest)
+      returns (MarkDirtyHotWalletResponse);
+  // Create owner hot wallet
+  rpc CreateOwnerHotWallet(CreateOwnerHotWalletRequest)
+      returns (CreateOwnerHotWalletResponse);
+}
+
+message Asset {
+  string identity = 1;
+  string amount = 2;
+}
+
+message Assets { repeated Asset asset = 1; }
+
+message BlockchainAdditionalData {
+  message TronData {
+    string available_energy_for_use = 1;
+    string total_energy = 2;
+    string available_bandwidth_for_use = 3;
+    string total_bandwidth = 4;
+    string stacked_trx = 5;
+    string stacked_energy = 6;
+    string stacked_bandwidth = 7;
+    string stacked_energy_trx = 8;
+    string stacked_bandwidth_trx = 9;
+    string total_used_bandwidth = 10;
+    string total_used_energy = 11;
+  }
+  optional TronData tron_data = 1;
+}
+
+message WalletPreview {
+  string address = 1;
+  common.v1.Blockchain blockchain = 2;
+  optional Assets assets = 3;
+  optional BlockchainAdditionalData blockchain_additional_data = 4;
+}
+
+/*
+  GetOwnerHotWallets
+*/
+
+message GetOwnerHotWalletsRequest {
+  string owner_id = 1;
+  common.v1.Blockchain blockchain = 2;
+  // a store customer who has been given a hot wallet for payment
+  optional string external_wallet_id = 3;
+  optional common.v1.BitcoinAddressType bitcoin_address_type = 4;
+  optional common.v1.LitecoinAddressType litecoin_address_type = 5;
+}
+
+message GetOwnerHotWalletsResponse {
+  message HotAddress {
+    string address = 1;
+    string external_wallet_id = 2;
+  }
+  repeated HotAddress addresses = 1;
+}
+
+/*
+  GetOwnerColdWallets
+*/
+
+message GetOwnerColdWalletsRequest {
+  string owner_id = 1;
+  optional common.v1.Blockchain blockchain = 2;
+}
+
+message GetOwnerColdWalletsResponse { repeated WalletPreview items = 1; }
+
+/*
+  GetOwnerProcessingWallets
+*/
+
+message GetOwnerProcessingWalletsRequest {
+  string owner_id = 1;
+  optional common.v1.Blockchain blockchain = 2;
+  optional bool tiny = 3;
+}
+
+message GetOwnerProcessingWalletsResponse { repeated WalletPreview items = 1; }
+
+/*
+  AttachOwnerColdWallets
+*/
+
+message AttachOwnerColdWalletsRequest {
+  string owner_id = 1;
+  common.v1.Blockchain blockchain = 2;
+  string totp = 3;
+  repeated string addresses = 4;
+}
+
+message AttachOwnerColdWalletsResponse {}
+
+/*
+  CreateOwnerHotWallet
+*/
+
+message CreateOwnerHotWalletRequest {
+  string owner_id = 1;
+  common.v1.Blockchain blockchain = 2;
+  // a store customer who has been given a hot wallet for payment
+  string external_wallet_id = 3;
+  optional common.v1.BitcoinAddressType bitcoin_address_type = 4;
+  optional common.v1.LitecoinAddressType litecoin_address_type = 5;
+  optional common.v1.DogecoinAddressType dogecoin_address_type = 6;
+}
+
+message CreateOwnerHotWalletResponse { string address = 1; }
+
+/*
+  MarkDirtyHotWallet
+*/
+
+message MarkDirtyHotWalletRequest {
+  string owner_id = 1;
+  common.v1.Blockchain blockchain = 2;
+  string address = 3;
+}
+
+message MarkDirtyHotWalletResponse {}

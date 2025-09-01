@@ -1,0 +1,351 @@
+version: "2"
+overrides:
+  go:
+    overrides:
+      # UUID
+      - db_type: "uuid"
+        go_type: "github.com/google/uuid.UUID"
+      - db_type: "uuid"
+        nullable: true
+        go_type: "github.com/google/uuid.NullUUID"
+
+      # Decimal
+      - go_type: "github.com/shopspring/decimal.Decimal"
+        db_type: "pg_catalog.numeric"
+      - go_type: "github.com/shopspring/decimal.NullDecimal"
+        db_type: "pg_catalog.numeric"
+        nullable: true
+
+      # Owners
+      - column: owners.external_id
+        go_struct_tag: validate:"required"
+      - column: owners.client_id
+        go_struct_tag: validate:"required,uuid4"
+      - column: owners.mnemonic
+        go_struct_tag: validate:"required"
+      # - column: owners.pass_phrase
+      #   go_struct_tag: validate:"required"
+      - column: owners.otp_secret
+        go_struct_tag: validate:"required"
+
+      # Transfers
+      - column: transfers.blockchain
+        go_type:
+          import: github.com/dv-net/dv-processing/pkg/walletsdk/wconstants
+          type: BlockchainType
+      - column: transfers.status
+        go_type:
+          import: github.com/dv-net/dv-processing/internal/constants
+          type: TransferStatus
+      - column: transfers.workflow_snapshot
+        go_type:
+          import: github.com/dv-net/dv-processing/internal/workflow
+          type: Snapshot
+      - column: transfers.wallet_from_type
+        go_type:
+          type: constants.WalletType
+      - column: transfers.state_data
+        go_type:
+          type: map[string]any
+
+      # Transfer transactions
+      - column: transfer_transactions.tx_type
+        go_type:
+          type: TransferTransactionType
+      - column: transfer_transactions.status
+        go_type:
+          type: TransferTransactionsStatus
+
+      # Cold wallets
+      - column: cold_wallets.blockchain
+        go_struct_tag: validate:"required"
+      - column: cold_wallets.address
+        go_struct_tag: validate:"required"
+      - column: cold_wallets.owner_id
+        go_struct_tag: validate:"required,uuid4"
+
+      - column: cold_wallets.blockchain
+        go_type:
+          import: github.com/dv-net/dv-processing/pkg/walletsdk/wconstants
+          type: BlockchainType
+
+      # Hot wallets
+      - column: hot_wallets.blockchain
+        go_struct_tag: validate:"required"
+      - column: hot_wallets.address
+        go_struct_tag: validate:"required"
+      - column: hot_wallets.owner_id
+        go_struct_tag: validate:"required,uuid4"
+      - column: hot_wallets.external_wallet_id
+        go_struct_tag: validate:"required"
+
+      - column: hot_wallets.blockchain
+        go_type:
+          import: github.com/dv-net/dv-processing/pkg/walletsdk/wconstants
+          type: BlockchainType
+
+      # Processing wallets
+      - column: processing_wallets.blockchain
+        go_struct_tag: validate:"required"
+      - column: processing_wallets.address
+        go_struct_tag: validate:"required"
+      - column: processing_wallets.owner_id
+        go_struct_tag: validate:"required,uuid4"
+
+      - column: processing_wallets.blockchain
+        go_type:
+          import: github.com/dv-net/dv-processing/pkg/walletsdk/wconstants
+          type: BlockchainType
+
+      # Processed blocks
+      - column: processed_blocks.blockchain
+        go_type:
+          import: github.com/dv-net/dv-processing/pkg/walletsdk/wconstants
+          type: BlockchainType
+
+      # Webhooks
+      - column: webhooks.status
+        go_type:
+          type: WebhookStatus
+      - column: webhooks.kind
+        go_type:
+          type: WebhookKind
+
+      - column: webhook_view.status
+        go_type:
+          type: WebhookStatus
+      - column: webhook_view.kind
+        go_type:
+          type: WebhookKind
+
+sql:
+  # processed blocks
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/processed_blocks
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_processed_blocks
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 2
+
+  # clients
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/clients
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_clients
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 2
+
+  # owners
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/owners
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_owners
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 2
+
+  # wallets cold
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/wallets_cold
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_wallets_cold
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 2
+
+  # wallets hot
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/wallets_hot
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_wallets_hot
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 3
+
+  # wallets processing
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/wallets_processing
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_wallets_processing
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 3
+
+  # wallets
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/wallets
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_wallets
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 2
+
+  # transfers
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/transfers
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_transfers
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 3
+
+  # webhooks
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/webhooks
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_webhooks
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 2
+
+  # settings
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/settings
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_settings
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 3
+
+  # transfer_transactions
+  - schema: sql/postgres/migrations
+    queries: sql/postgres/queries/transfer_transactions
+    engine: postgresql
+    gen:
+      go:
+        sql_package: pgx/v5
+        out: internal/store/repos/repo_transfer_transactions
+        emit_prepared_queries: false
+        emit_json_tags: true
+        emit_exported_queries: false
+        emit_db_tags: true
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_result_struct_pointers: true
+        emit_params_struct_pointers: false
+        emit_enum_valid_method: true
+        emit_all_enum_values: true
+        query_parameter_limit: 3

@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package processing.client.v1;
+
+// Service which interacts with client
+service ClientService {
+  // Create client
+  rpc Create(CreateRequest) returns (CreateResponse);
+  // Change merchant callback url
+  rpc UpdateCallbackURL(UpdateCallbackURLRequest)
+      returns (UpdateCallbackURLResponse);
+  // Get merchant callback url
+  rpc GetCallbackURL(GetCallbackURLRequest) returns (GetCallbackURLResponse);
+}
+
+message CreateRequest {
+  string callback_url = 1;
+  optional string backend_ip = 2;
+  optional string merchant_domain = 3;
+  string backend_version = 4;
+}
+
+message CreateResponse {
+  string client_id = 1;
+  string client_key = 2;
+  string admin_secret_key = 3;
+}
+
+message UpdateCallbackURLRequest {
+  string client_id = 1;
+  string callback_url = 2;
+}
+
+message UpdateCallbackURLResponse {}
+
+message GetCallbackURLRequest { string client_id = 1; }
+
+message GetCallbackURLResponse { string callback_url = 1; }

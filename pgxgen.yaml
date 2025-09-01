@@ -1,0 +1,193 @@
+version: 1
+sqlc:
+  - schema_dir: sql/postgres/migrations
+    models:
+      move:
+        output_dir: internal/models
+        output_file_name: models_gen.go
+        package_name: models
+        package_path: github.com/dv-net/dv-processing/internal/models
+        imports:
+          - path: github.com/dv-net/dv-processing/internal/models
+            go_type: WebhookStatus
+          - path: github.com/dv-net/dv-processing/internal/models
+            go_type: WebhookKind
+          - path: github.com/dv-net/dv-processing/internal/models
+            go_type: TransferTransactionType
+          - path: github.com/dv-net/dv-processing/internal/models
+            go_type: TransferTransactionsStatus
+
+    crud:
+      auto_remove_generated_files: true
+      exclude_table_name_from_methods: true
+      tables:
+        # Processed blocks
+        processed_blocks:
+          output_dir: sql/postgres/queries/processed_blocks
+          primary_column: id
+          methods:
+            create:
+              skip_columns:
+                - updated_at
+              column_values:
+                created_at: now()
+
+        # Clients
+        clients:
+          output_dir: sql/postgres/queries/clients
+          primary_column: id
+          methods:
+            create:
+              skip_columns:
+                - id
+                - updated_at
+              returning: "*"
+              column_values:
+                created_at: now()
+            find:
+              name: GetAll
+            get:
+              name: GetByID
+            exists:
+              name: ExistsByID
+              where:
+                id:
+
+        # Owners
+        owners:
+          output_dir: sql/postgres/queries/owners
+          primary_column: id
+          methods:
+            create:
+              skip_columns:
+                - id
+                - otp_secret
+                - otp_confirmed
+                - updated_at
+              returning: "*"
+              column_values:
+                created_at: now()
+            find:
+              name: GetAll
+            get:
+              name: GetByID
+            exists:
+              name: ExistsByExternalID
+              where:
+                external_id:
+
+        # Transfers
+        transfers:
+          output_dir: sql/postgres/queries/transfers
+          primary_column: id
+          methods:
+            create:
+              skip_columns:
+                - id
+                - updated_at
+              returning: "*"
+              column_values:
+                created_at: now()
+            get:
+              name: GetByID
+
+        # Webhooks
+        webhooks:
+          output_dir: sql/postgres/queries/webhooks
+          primary_column: id
+          methods:
+            delete:
+              name: DeleteByID
+
+        # cold wallets
+        cold_wallets:
+          output_dir: sql/postgres/queries/wallets_cold
+          primary_column: id
+          methods:
+            create:
+              returning: "*"
+              skip_columns:
+                - id
+                - is_dirty
+                - updated_at
+              column_values:
+                created_at: now()
+
+        # hot wallets
+        hot_wallets:
+          output_dir: sql/postgres/queries/wallets_hot
+          primary_column: id
+          methods:
+            create:
+              returning: "*"
+              skip_columns:
+                - id
+                - is_dirty
+                - updated_at
+              column_values:
+                created_at: now()
+            exists:
+              where:
+                owner_id:
+                blockchain:
+                address:
+
+        # processing wallets
+        processing_wallets:
+          output_dir: sql/postgres/queries/wallets_processing
+          primary_column: id
+          methods:
+            create:
+              returning: "*"
+              skip_columns:
+                - id
+                - is_dirty
+                - updated_at
+              column_values:
+                created_at: now()
+
+        # settings
+        settings:
+          output_dir: sql/postgres/queries/settings
+          primary_column: id
+          methods:
+            create:
+              skip_columns:
+                - id
+                - updated_at
+              returning: "*"
+              column_values:
+                created_at: now()
+            update:
+              skip_columns:
+                - id
+                - created_at
+              returning: "*"
+
+        # transfer_transactions
+        transfer_transactions:
+          output_dir: sql/postgres/queries/transfer_transactions
+          primary_column: id
+          methods:
+            create:
+              skip_columns:
+                - id
+                - updated_at
+              returning: "*"
+              column_values:
+                created_at: now()
+
+    constants:
+      tables:
+        cold_wallets:
+          output_dir: internal/store/repos/repo_wallets_cold
+          include_column_names: true
+        hot_wallets:
+          output_dir: internal/store/repos/repo_wallets_hot
+          include_column_names: true
+        processing_wallets:
+          output_dir: internal/store/repos/repo_wallets_processing
+          include_column_names: true
+        transfers:
+          output_dir: internal/store/repos/repo_transfers
+          include_column_names: true

@@ -1,0 +1,36 @@
+syntax = "proto3";
+package processing.system.v1;
+
+option go_package = "api/processing/system/v1";
+
+// Service which provides system information
+service SystemService {
+  // System info (version etc)
+  rpc Info(InfoRequest) returns (InfoResponse);
+  // Check new version from updater
+  rpc CheckNewVersion(CheckNewVersionRequest) returns (CheckNewVersionResponse);
+  // Update Processing from updater
+  rpc UpdateToNewVersion(UpdateToNewVersionRequest) returns (UpdateToNewVersionResponse);
+}
+
+message InfoRequest {}
+
+message InfoResponse {
+  string version = 1;
+  string commit = 2;
+}
+
+message CheckNewVersionRequest {}
+
+message CheckNewVersionResponse {
+  string name = 1;
+  string installed_version = 2;
+  string available_version = 3;
+  bool need_for_update = 4;
+}
+
+message UpdateToNewVersionRequest {}
+
+message UpdateToNewVersionResponse {
+  string status = 1;
+}

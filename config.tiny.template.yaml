@@ -1,0 +1,5 @@
+postgres:
+  addr: "127.0.0.1:5433"
+  user: "dv-processing"
+  password: ""
+  db_name: "dv-processing"

@@ -1,0 +1,130 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+  tests: false
+  allow-parallel-runners: true
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - decorder
+    - depguard
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - forcetypeassert
+    - funlen
+    - gocheckcompilerdirectives
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - goheader
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - govet
+    - grouper
+    - ineffassign
+    - interfacebloat
+    - loggercheck
+    - misspell
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - prealloc
+    - promlinter
+    - reassign
+    - revive
+    - staticcheck
+    - tagliatelle
+    - testableexamples
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - whitespace
+  settings:
+    depguard:
+      rules:
+        main:
+          list-mode: original
+          deny:
+            - pkg: github.com/pkg/errors
+              desc: use errors package instead
+    funlen:
+      lines: 180
+      statements: -1
+      ignore-comments: true
+    gocognit:
+      min-complexity: 150
+    gocyclo:
+      min-complexity: 60
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          yaml: snake
+        use-field-name: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - funlen
+          - misspell
+        path: _test\.go
+      - path: (.+)\.go$
+        text: missing type in composite literal
+      - path: (.+)\.go$
+        text: "var-naming: don't use an underscore in package name"
+      - path: (.+)\.go$
+        text: should not use underscores in package names
+      - path: (.+)\.go$
+        text: "var-naming: avoid meaningless package names"
+    paths:
+      - .*\.pb\.go
+      - .*\.sql\.go
+      - .*\.connect\.go
+      - bin
+      - api
+      - schema
+      - sql
+      - internal/contracts
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.pb\.go
+      - .*\.sql\.go
+      - .*\.connect\.go
+      - bin
+      - api
+      - schema
+      - sql
+      - internal/contracts
+      - third_party$
+      - builtin$
+      - examples$

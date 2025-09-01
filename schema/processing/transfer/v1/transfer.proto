@@ -1,0 +1,123 @@
+syntax = "proto3";
+package processing.transfer.v1;
+
+import "processing/common/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "api/processing/transfer/v1";
+
+// Service which interacts with transfers
+service TransferService {
+  // Create a new transfer
+  rpc Create(CreateRequest) returns (CreateResponse);
+  // Get transfer by request ID
+  rpc GetByRequestID(GetByRequestIDRequest) returns (GetByRequestIDResponse);
+}
+
+// Transfer status
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_NEW = 1;
+  STATUS_PENDING = 2;
+  STATUS_PROCESSING = 3;
+  STATUS_IN_MEMPOOL = 4;
+  STATUS_UNCONFIRMED = 5;
+  STATUS_COMPLETED = 6;
+  STATUS_FAILED = 7;
+  STATUS_FROZEN = 8;
+}
+
+// Transfer transaction type
+enum TransferTransactionType {
+  TRANSFER_TRANSACTION_TYPE_UNSPECIFIED = 0;
+  TRANSFER_TRANSACTION_TYPE_TRANSFER = 1;
+  TRANSFER_TRANSACTION_TYPE_DELEGATE = 2;
+  TRANSFER_TRANSACTION_TYPE_RECLAIM = 3;
+  TRANSFER_TRANSACTION_TYPE_SEND_BURN_BASE_ASSET = 4;
+  TRANSFER_TRANSACTION_TYPE_ACCOUNT_ACTIVATION = 5;
+}
+
+// Transfer transaction status
+enum TransferTransactionStatus {
+  TRANSFER_TRANSACTION_STATUS_UNSPECIFIED = 0;
+  TRANSFER_TRANSACTION_STATUS_PENDING = 1;
+  TRANSFER_TRANSACTION_STATUS_UNCONFIRMED = 2;
+  TRANSFER_TRANSACTION_STATUS_CONFIRMED = 3;
+  TRANSFER_TRANSACTION_STATUS_FAILED = 4;
+}
+
+// Transfer transaction
+message TransferTransaction {
+  string id = 1; // UUID
+  string transfer_id = 2; // UUID
+  string tx_hash = 3;
+  string bandwidth_amount = 4; // Decimal
+  string energy_amount = 5; // Decimal
+  string native_token_amount = 6; // Decimal
+  string native_token_fee = 7; // Decimal
+  TransferTransactionType tx_type = 8;
+  TransferTransactionStatus status = 9;
+  string step = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+// Transfer
+message Transfer {
+  string id = 1;
+  Status status = 2;
+  string owner_id = 3;
+  string request_id = 4;
+  common.v1.Blockchain blockchain = 5;
+  repeated string from_addresses = 6;
+  repeated string to_addresses = 7;
+  string asset_identifier = 8;
+  // used for tron transfers: burntrx, resources.
+  // for other blockchains must be empty
+  optional string kind = 9;
+  bool whole_amount = 10;
+  optional string amount = 11;
+  optional string fee = 12;
+  optional string fee_max = 13;
+  optional string tx_hash = 14;
+  optional string error_message = 15;
+  google.protobuf.Timestamp created_at = 16;
+  optional google.protobuf.Timestamp updated_at = 17;
+  google.protobuf.Struct state_data = 18;
+  google.protobuf.Struct workflow_snapshot = 19;
+  // List of system transactions associated with the transfer, sorted by created_at
+  repeated TransferTransaction transactions = 20;
+}
+
+/*
+
+  Create transfer
+
+*/
+
+message CreateRequest {
+  string owner_id = 1;
+  string request_id = 2;
+  common.v1.Blockchain blockchain = 3;
+  repeated string from_addresses = 4;
+  repeated string to_addresses = 5;
+  string asset_identifier = 6;
+  // withdraw the entire amount from the wallet
+  bool whole_amount = 7;
+  optional string amount = 8;
+  // delegate / burn / etc...
+  optional string kind = 9;
+  optional string fee = 10;
+  optional string fee_max = 11;
+}
+message CreateResponse { Transfer item = 1; }
+
+/*
+
+  Get transfer
+
+*/
+
+message GetByRequestIDRequest { string request_id = 1; }
+message GetByRequestIDResponse { Transfer item = 1; }

@@ -1,0 +1,169 @@
+log:
+  format: json
+  level: info
+  console_colored: false
+  trace: fatal
+  with_caller: false
+  with_stack_trace: false
+ops:
+  enabled: false
+  network: tcp
+  tracing_enabled: false
+  metrics:
+    enabled: false
+    path: /metrics
+    port: "10000"
+    basic_auth:
+      enabled: false
+      username: ""
+      password: ""
+  healthy:
+    enabled: false
+    path: /healthy
+    port: "10000"
+  profiler:
+    enabled: false
+    path: /debug/pprof
+    port: "10000"
+    write_timeout: 60
+postgres:
+  addr: ""
+  user: ""
+  password: ""
+  db_name: ""
+  ping_interval: 10
+  min_conns: 3
+  max_conns: 6
+grpc:
+  enabled: true
+  addr: :9000
+  reflect_enabled: false
+explorer_proxy:
+  name: explorer-proxy-client
+  addr: https://explorer-proxy.dv.net
+blockchain:
+  tron:
+    enabled: true
+    node:
+      grpc_address: node-tron-grpc.dv.net:443
+      use_tls: true
+    activation_contract_address: TQuCVz7ZXMwcuT2ERcBYCZzLeNAZofcTgY
+    use_burn_trx_activation: true
+  ethereum:
+    enabled: true
+    network: mainnet
+    node:
+      address: https://node-eth.dv.net
+    attributes:
+      max_gas_price: 8.0
+  bsc:
+    enabled: true
+    network: mainnet
+    node:
+      address: https://node-bsc.dv.net
+    attributes:
+      max_gas_price: 3.0
+  polygon:
+    enabled: true
+    network: mainnet
+    node:
+      address: https://node-polygon.dv.net
+    attributes:
+      max_gas_price: 130.0
+  arbitrum:
+    enabled: false
+    network: mainnet
+    node:
+      address: ""
+    attributes:
+      max_gas_price: 1.0
+  optimism:
+    enabled: false
+    network: mainnet
+    node:
+      address: ""
+    attributes:
+      max_gas_price: 0.001
+  linea:
+    enabled: false
+    network: mainnet
+    node:
+      address: ""
+    attributes:
+      max_gas_price: 1.0
+  bitcoin:
+    enabled: true
+    network: mainnet
+    attributes:
+      fee_per_byte: 7
+      min_utxo_amount: 0
+    node:
+      address: node-btc.dv.net:443
+      login: rpc
+      secret: qh1lFWjT4UPlY0kN
+      use_tls: true
+  litecoin:
+    enabled: true
+    network: mainnet
+    attributes:
+      fee_per_byte: 10
+      min_utxo_amount: 0
+    node:
+      address: node-ltc.dv.net
+      login: rpc
+      secret: qh1lFWjT4UPlY0kN
+      use_tls: true
+  bitcoin_cash:
+    enabled: true
+    network: mainnet
+    attributes:
+      fee_per_byte: 1
+      min_utxo_amount: 0
+    node:
+      address: node-bch.dv.net
+      login: rpc
+      secret: qh1lFWjT4UPlY0kN
+      use_tls: true
+  dogecoin:
+    enabled: false
+    network: mainnet
+    attributes:
+      fee_per_byte: 50000
+      min_utxo_amount: 0
+    node:
+      address: node-doge.dv.net
+      login: rpc
+      secret: qh1lFWjT4UPlY0kN
+      use_tls: true
+resource_manager:
+  enabled: true
+  connect:
+    name: orders-client
+    addr: https://delegate.dv.net
+  use_activator_contract: true
+  delegation_duration: 15s
+watcher:
+  client_secret: ""
+  grpc_reconnection_delay: 1s
+  enabled: false
+  connect:
+    name: connectrpc-client
+    addr: ""
+webhooks:
+  sender:
+    enabled: true
+    quantity: 500
+  cleanup:
+    enabled: true
+    cron: 0 1 * * *
+    max_age: 720h0m0s
+  remove_after_sent: false
+interceptors:
+  disable_checking_sign: false
+transfers:
+  enabled: true
+use_cache_for_wallets: true
+merchant_admin:
+  base_url: https://api.dv.net
+updater:
+  base_url: http://localhost:8081

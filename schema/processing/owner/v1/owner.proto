@@ -1,0 +1,128 @@
+syntax = "proto3";
+package processing.owner.v1;
+
+import "processing/common/v1/common.proto";
+
+option go_package = "api/processing/owner/v1";
+
+// Service which interacts with owner
+service OwnerService {
+  // Create owner of client (creates processing wallet as side effect)
+  rpc Create(CreateRequest) returns (CreateResponse);
+  // Get owner mnemonic phrases
+  rpc GetSeeds(GetSeedsRequest) returns (GetSeedsResponse);
+  // Get owner private keys (only hot,processing)
+  rpc GetPrivateKeys(GetPrivateKeysRequest) returns (GetPrivateKeysResponse);
+  // Get owner hot wallet keys
+  rpc GetHotWalletKeys(GetHotWalletKeysRequest)
+      returns (GetHotWalletKeysResponse);
+  // Confirm owner two auth
+  rpc ConfirmTwoFactorAuth(ConfirmTwoFactorAuthRequest)
+      returns (ConfirmTwoFactorAuthResponse);
+  // Enable or disable owners two auth
+  rpc DisableTwoFactorAuth(DisableTwoFactorAuthRequest)
+      returns (DisableTwoFactorAuthResponse);
+  // Get owner 2fa status data
+  rpc GetTwoFactorAuthData(GetTwoFactorAuthDataRequest)
+      returns (GetTwoFactorAuthDataResponse);
+  // Validate 2fa token
+  rpc ValidateTwoFactorToken(ValidateTwoFactorTokenRequest)
+      returns (ValidateTwoFactorTokenResponse);
+}
+
+/* GetHotWalletKeys */
+
+message GetHotWalletKeysRequest {
+  string owner_id = 1;
+  string otp = 2;
+  repeated string wallet_addresses = 3;
+  repeated string excluded_wallet_addresses = 4;
+}
+
+message GetHotWalletKeysResponse { repeated GetHotWalletKeysItem entries = 1; }
+
+message GetHotWalletKeysItem {
+  common.v1.Blockchain name = 1;
+  repeated PrivateKeyItem items = 2;
+}
+
+message PrivateKeyItem {
+  string address = 1;
+  string public_key = 2;
+  string private_key = 3;
+}
+
+/* Create owner */
+
+message CreateRequest {
+  string client_id = 1;
+  // External id of store
+  string external_id = 2;
+  string mnemonic = 3;
+}
+
+message CreateResponse { string id = 1; }
+
+/* Get seeds */
+
+message GetSeedsRequest {
+  string owner_id = 1;
+  string totp = 2;
+}
+
+message GetSeedsResponse {
+  string mnemonic = 1;
+  string pass_phrase = 2;
+}
+
+/* Get private keys */
+
+message GetPrivateKeysRequest {
+  string owner_id = 1;
+  string totp = 2;
+}
+
+message GetPrivateKeysResponse { map<string, KeyPairSequence> keys = 1; }
+
+message KeyPairSequence { repeated KeyPair pairs = 1; }
+
+message KeyPair {
+  string public_key = 1;
+  string private_key = 2;
+  string address = 3;
+  string kind = 4;
+}
+
+/* Confirm two factor auth */
+
+message ConfirmTwoFactorAuthRequest {
+  string owner_id = 1;
+  string totp = 2;
+}
+
+message ConfirmTwoFactorAuthResponse {}
+
+/* Disable two factor auth */
+
+message DisableTwoFactorAuthRequest {
+  string owner_id = 1;
+  string totp = 2;
+}
+message DisableTwoFactorAuthResponse {}
+
+/* Get two factor auth data */
+
+message GetTwoFactorAuthDataRequest { string owner_id = 1; }
+message GetTwoFactorAuthDataResponse {
+  optional string secret = 1;
+  bool is_confirmed = 2;
+}
+
+/* Validate two factor auth */
+
+message ValidateTwoFactorTokenRequest {
+  string owner_id = 1;
+  string totp = 2;
+}
+
+message ValidateTwoFactorTokenResponse {}

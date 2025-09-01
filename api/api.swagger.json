@@ -1,0 +1,1669 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "processing/client/v1/client.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "ClientService"
+    },
+    {
+      "name": "OwnerService"
+    },
+    {
+      "name": "SystemService"
+    },
+    {
+      "name": "TransferService"
+    },
+    {
+      "name": "WalletService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/processing.client.v1.ClientService/Create": {
+      "post": {
+        "summary": "Create client",
+        "operationId": "ClientService_Create",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.client.v1.CreateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.client.v1.CreateRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ClientService"
+        ]
+      }
+    },
+    "/processing.client.v1.ClientService/GetCallbackURL": {
+      "post": {
+        "summary": "Get merchant callback url",
+        "operationId": "ClientService_GetCallbackURL",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.client.v1.GetCallbackURLResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.client.v1.GetCallbackURLRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ClientService"
+        ]
+      }
+    },
+    "/processing.client.v1.ClientService/UpdateCallbackURL": {
+      "post": {
+        "summary": "Change merchant callback url",
+        "operationId": "ClientService_UpdateCallbackURL",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.client.v1.UpdateCallbackURLResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.client.v1.UpdateCallbackURLRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ClientService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/ConfirmTwoFactorAuth": {
+      "post": {
+        "summary": "Confirm owner two auth",
+        "operationId": "OwnerService_ConfirmTwoFactorAuth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.ConfirmTwoFactorAuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.ConfirmTwoFactorAuthRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/Create": {
+      "post": {
+        "summary": "Create owner of client (creates processing wallet as side effect)",
+        "operationId": "OwnerService_Create",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.CreateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.CreateRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/DisableTwoFactorAuth": {
+      "post": {
+        "summary": "Enable or disable owners two auth",
+        "operationId": "OwnerService_DisableTwoFactorAuth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.DisableTwoFactorAuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.DisableTwoFactorAuthRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/GetHotWalletKeys": {
+      "post": {
+        "summary": "Get owner hot wallet keys",
+        "operationId": "OwnerService_GetHotWalletKeys",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetHotWalletKeysResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetHotWalletKeysRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/GetPrivateKeys": {
+      "post": {
+        "summary": "Get owner private keys (only hot,processing)",
+        "operationId": "OwnerService_GetPrivateKeys",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetPrivateKeysResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetPrivateKeysRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/GetSeeds": {
+      "post": {
+        "summary": "Get owner mnemonic phrases",
+        "operationId": "OwnerService_GetSeeds",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetSeedsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetSeedsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/GetTwoFactorAuthData": {
+      "post": {
+        "summary": "Get owner 2fa status data",
+        "operationId": "OwnerService_GetTwoFactorAuthData",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetTwoFactorAuthDataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.GetTwoFactorAuthDataRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.owner.v1.OwnerService/ValidateTwoFactorToken": {
+      "post": {
+        "summary": "Validate 2fa token",
+        "operationId": "OwnerService_ValidateTwoFactorToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.ValidateTwoFactorTokenResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.owner.v1.ValidateTwoFactorTokenRequest"
+            }
+          }
+        ],
+        "tags": [
+          "OwnerService"
+        ]
+      }
+    },
+    "/processing.system.v1.SystemService/CheckNewVersion": {
+      "post": {
+        "summary": "Check new version from updater",
+        "operationId": "SystemService_CheckNewVersion",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.CheckNewVersionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.CheckNewVersionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/processing.system.v1.SystemService/Info": {
+      "post": {
+        "summary": "System info (version etc)",
+        "operationId": "SystemService_Info",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.InfoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.InfoRequest"
+            }
+          }
+        ],
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/processing.system.v1.SystemService/UpdateToNewVersion": {
+      "post": {
+        "summary": "Update Processing from updater",
+        "operationId": "SystemService_UpdateToNewVersion",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.UpdateToNewVersionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.UpdateToNewVersionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/processing.transfer.v1.TransferService/Create": {
+      "post": {
+        "summary": "Create a new transfer",
+        "operationId": "TransferService_Create",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.CreateResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.CreateRequest"
+            }
+          }
+        ],
+        "tags": [
+          "TransferService"
+        ]
+      }
+    },
+    "/processing.transfer.v1.TransferService/GetByRequestID": {
+      "post": {
+        "summary": "Get transfer by request ID",
+        "operationId": "TransferService_GetByRequestID",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.GetByRequestIDResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.GetByRequestIDRequest"
+            }
+          }
+        ],
+        "tags": [
+          "TransferService"
+        ]
+      }
+    },
+    "/processing.wallet.v1.WalletService/AttachOwnerColdWallets": {
+      "post": {
+        "summary": "Attach owner cold wallets",
+        "operationId": "WalletService_AttachOwnerColdWallets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.AttachOwnerColdWalletsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.AttachOwnerColdWalletsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "WalletService"
+        ]
+      }
+    },
+    "/processing.wallet.v1.WalletService/CreateOwnerHotWallet": {
+      "post": {
+        "summary": "Create owner hot wallet",
+        "operationId": "WalletService_CreateOwnerHotWallet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.CreateOwnerHotWalletResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.CreateOwnerHotWalletRequest"
+            }
+          }
+        ],
+        "tags": [
+          "WalletService"
+        ]
+      }
+    },
+    "/processing.wallet.v1.WalletService/GetOwnerColdWallets": {
+      "post": {
+        "summary": "Get owner cold active wallet list",
+        "operationId": "WalletService_GetOwnerColdWallets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.GetOwnerColdWalletsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.GetOwnerColdWalletsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "WalletService"
+        ]
+      }
+    },
+    "/processing.wallet.v1.WalletService/GetOwnerHotWallets": {
+      "post": {
+        "summary": "Get owner hot wallets",
+        "operationId": "WalletService_GetOwnerHotWallets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.GetOwnerHotWalletsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.GetOwnerHotWalletsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "WalletService"
+        ]
+      }
+    },
+    "/processing.wallet.v1.WalletService/GetOwnerProcessingWallets": {
+      "post": {
+        "summary": "Get owner processing wallets",
+        "operationId": "WalletService_GetOwnerProcessingWallets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.GetOwnerProcessingWalletsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.GetOwnerProcessingWalletsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "WalletService"
+        ]
+      }
+    },
+    "/processing.wallet.v1.WalletService/MarkDirtyHotWallet": {
+      "post": {
+        "summary": "Mark a dirty hot wallet",
+        "operationId": "WalletService_MarkDirtyHotWallet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.MarkDirtyHotWalletResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.wallet.v1.MarkDirtyHotWalletRequest"
+            }
+          }
+        ],
+        "tags": [
+          "WalletService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "google.protobuf.Any": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "google.protobuf.NullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE",
+      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "google.rpc.Status": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/google.protobuf.Any"
+          }
+        }
+      }
+    },
+    "processing.client.v1.CreateRequest": {
+      "type": "object",
+      "properties": {
+        "callback_url": {
+          "type": "string"
+        },
+        "backend_ip": {
+          "type": "string"
+        },
+        "merchant_domain": {
+          "type": "string"
+        },
+        "backend_version": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.client.v1.CreateResponse": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string"
+        },
+        "client_key": {
+          "type": "string"
+        },
+        "admin_secret_key": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.client.v1.GetCallbackURLRequest": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.client.v1.GetCallbackURLResponse": {
+      "type": "object",
+      "properties": {
+        "callback_url": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.client.v1.UpdateCallbackURLRequest": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string"
+        },
+        "callback_url": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.client.v1.UpdateCallbackURLResponse": {
+      "type": "object"
+    },
+    "processing.common.v1.BitcoinAddressType": {
+      "type": "string",
+      "enum": [
+        "BITCOIN_ADDRESS_TYPE_UNSPECIFIED",
+        "BITCOIN_ADDRESS_TYPE_P2PKH",
+        "BITCOIN_ADDRESS_TYPE_P2SH",
+        "BITCOIN_ADDRESS_TYPE_SEGWIT",
+        "BITCOIN_ADDRESS_TYPE_P2TR"
+      ],
+      "default": "BITCOIN_ADDRESS_TYPE_UNSPECIFIED",
+      "title": "- BITCOIN_ADDRESS_TYPE_P2PKH: Legacy\n - BITCOIN_ADDRESS_TYPE_P2SH: SegWit\n - BITCOIN_ADDRESS_TYPE_SEGWIT: Native SegWit or Bech32\n - BITCOIN_ADDRESS_TYPE_P2TR: Taproot address or Bech32m"
+    },
+    "processing.common.v1.Blockchain": {
+      "type": "string",
+      "enum": [
+        "BLOCKCHAIN_UNSPECIFIED",
+        "BLOCKCHAIN_TRON",
+        "BLOCKCHAIN_BITCOIN",
+        "BLOCKCHAIN_ETHEREUM",
+        "BLOCKCHAIN_LITECOIN",
+        "BLOCKCHAIN_BITCOINCASH",
+        "BLOCKCHAIN_BINANCE_SMART_CHAIN",
+        "BLOCKCHAIN_POLYGON",
+        "BLOCKCHAIN_ARBITRUM",
+        "BLOCKCHAIN_OPTIMISM",
+        "BLOCKCHAIN_LINEA",
+        "BLOCKCHAIN_SOLANA",
+        "BLOCKCHAIN_MONERO",
+        "BLOCKCHAIN_DOGECOIN",
+        "BLOCKCHAIN_TON"
+      ],
+      "default": "BLOCKCHAIN_UNSPECIFIED"
+    },
+    "processing.common.v1.DogecoinAddressType": {
+      "type": "string",
+      "enum": [
+        "DOGECOIN_ADDRESS_TYPE_UNSPECIFIED",
+        "DOGECOIN_ADDRESS_TYPE_P2PKH"
+      ],
+      "default": "DOGECOIN_ADDRESS_TYPE_UNSPECIFIED",
+      "title": "- DOGECOIN_ADDRESS_TYPE_P2PKH: Legacy"
+    },
+    "processing.common.v1.LitecoinAddressType": {
+      "type": "string",
+      "enum": [
+        "LITECOIN_ADDRESS_TYPE_UNSPECIFIED",
+        "LITECOIN_ADDRESS_TYPE_P2PKH",
+        "LITECOIN_ADDRESS_TYPE_P2SH",
+        "LITECOIN_ADDRESS_TYPE_SEGWIT",
+        "LITECOIN_ADDRESS_TYPE_P2TR"
+      ],
+      "default": "LITECOIN_ADDRESS_TYPE_UNSPECIFIED",
+      "title": "- LITECOIN_ADDRESS_TYPE_P2PKH: Legacy\n - LITECOIN_ADDRESS_TYPE_P2SH: SegWit\n - LITECOIN_ADDRESS_TYPE_SEGWIT: Native SegWit or Bech32\n - LITECOIN_ADDRESS_TYPE_P2TR: Taproot address or Bech32m"
+    },
+    "processing.owner.v1.ConfirmTwoFactorAuthRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "totp": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.ConfirmTwoFactorAuthResponse": {
+      "type": "object"
+    },
+    "processing.owner.v1.CreateRequest": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string"
+        },
+        "external_id": {
+          "type": "string",
+          "title": "External id of store"
+        },
+        "mnemonic": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.CreateResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.DisableTwoFactorAuthRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "totp": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.DisableTwoFactorAuthResponse": {
+      "type": "object"
+    },
+    "processing.owner.v1.GetHotWalletKeysItem": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.owner.v1.PrivateKeyItem"
+          }
+        }
+      }
+    },
+    "processing.owner.v1.GetHotWalletKeysRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "otp": {
+          "type": "string"
+        },
+        "wallet_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "excluded_wallet_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "processing.owner.v1.GetHotWalletKeysResponse": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.owner.v1.GetHotWalletKeysItem"
+          }
+        }
+      }
+    },
+    "processing.owner.v1.GetPrivateKeysRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "totp": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.GetPrivateKeysResponse": {
+      "type": "object",
+      "properties": {
+        "keys": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/processing.owner.v1.KeyPairSequence"
+          }
+        }
+      }
+    },
+    "processing.owner.v1.GetSeedsRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "totp": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.GetSeedsResponse": {
+      "type": "object",
+      "properties": {
+        "mnemonic": {
+          "type": "string"
+        },
+        "pass_phrase": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.GetTwoFactorAuthDataRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.GetTwoFactorAuthDataResponse": {
+      "type": "object",
+      "properties": {
+        "secret": {
+          "type": "string"
+        },
+        "is_confirmed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "processing.owner.v1.KeyPair": {
+      "type": "object",
+      "properties": {
+        "public_key": {
+          "type": "string"
+        },
+        "private_key": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.KeyPairSequence": {
+      "type": "object",
+      "properties": {
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.owner.v1.KeyPair"
+          }
+        }
+      }
+    },
+    "processing.owner.v1.PrivateKeyItem": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        },
+        "private_key": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.ValidateTwoFactorTokenRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "totp": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.owner.v1.ValidateTwoFactorTokenResponse": {
+      "type": "object"
+    },
+    "processing.system.v1.CheckNewVersionRequest": {
+      "type": "object"
+    },
+    "processing.system.v1.CheckNewVersionResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "installed_version": {
+          "type": "string"
+        },
+        "available_version": {
+          "type": "string"
+        },
+        "need_for_update": {
+          "type": "boolean"
+        }
+      }
+    },
+    "processing.system.v1.InfoRequest": {
+      "type": "object"
+    },
+    "processing.system.v1.InfoResponse": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.system.v1.UpdateToNewVersionRequest": {
+      "type": "object"
+    },
+    "processing.system.v1.UpdateToNewVersionResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.transfer.v1.CreateRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "from_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "to_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "asset_identifier": {
+          "type": "string"
+        },
+        "whole_amount": {
+          "type": "boolean",
+          "title": "withdraw the entire amount from the wallet"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "description": "delegate / burn / etc..."
+        },
+        "fee": {
+          "type": "string"
+        },
+        "fee_max": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.transfer.v1.CreateResponse": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/processing.transfer.v1.Transfer"
+        }
+      }
+    },
+    "processing.transfer.v1.GetByRequestIDRequest": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.transfer.v1.GetByRequestIDResponse": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/processing.transfer.v1.Transfer"
+        }
+      }
+    },
+    "processing.transfer.v1.Status": {
+      "type": "string",
+      "enum": [
+        "STATUS_UNSPECIFIED",
+        "STATUS_NEW",
+        "STATUS_PENDING",
+        "STATUS_PROCESSING",
+        "STATUS_IN_MEMPOOL",
+        "STATUS_UNCONFIRMED",
+        "STATUS_COMPLETED",
+        "STATUS_FAILED",
+        "STATUS_FROZEN"
+      ],
+      "default": "STATUS_UNSPECIFIED",
+      "title": "Transfer status"
+    },
+    "processing.transfer.v1.Transfer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/processing.transfer.v1.Status"
+        },
+        "owner_id": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "from_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "to_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "asset_identifier": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "title": "used for tron transfers: burntrx, resources.\nfor other blockchains must be empty"
+        },
+        "whole_amount": {
+          "type": "boolean"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "fee": {
+          "type": "string"
+        },
+        "fee_max": {
+          "type": "string"
+        },
+        "tx_hash": {
+          "type": "string"
+        },
+        "error_message": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state_data": {
+          "type": "object"
+        },
+        "workflow_snapshot": {
+          "type": "object"
+        },
+        "transactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.transfer.v1.TransferTransaction"
+          },
+          "title": "List of system transactions associated with the transfer, sorted by created_at"
+        }
+      },
+      "title": "Transfer"
+    },
+    "processing.transfer.v1.TransferTransaction": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "UUID"
+        },
+        "transfer_id": {
+          "type": "string",
+          "title": "UUID"
+        },
+        "tx_hash": {
+          "type": "string"
+        },
+        "bandwidth_amount": {
+          "type": "string",
+          "title": "Decimal"
+        },
+        "energy_amount": {
+          "type": "string",
+          "title": "Decimal"
+        },
+        "native_token_amount": {
+          "type": "string",
+          "title": "Decimal"
+        },
+        "native_token_fee": {
+          "type": "string",
+          "title": "Decimal"
+        },
+        "tx_type": {
+          "$ref": "#/definitions/processing.transfer.v1.TransferTransactionType"
+        },
+        "status": {
+          "$ref": "#/definitions/processing.transfer.v1.TransferTransactionStatus"
+        },
+        "step": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "title": "Transfer transaction"
+    },
+    "processing.transfer.v1.TransferTransactionStatus": {
+      "type": "string",
+      "enum": [
+        "TRANSFER_TRANSACTION_STATUS_UNSPECIFIED",
+        "TRANSFER_TRANSACTION_STATUS_PENDING",
+        "TRANSFER_TRANSACTION_STATUS_UNCONFIRMED",
+        "TRANSFER_TRANSACTION_STATUS_CONFIRMED",
+        "TRANSFER_TRANSACTION_STATUS_FAILED"
+      ],
+      "default": "TRANSFER_TRANSACTION_STATUS_UNSPECIFIED",
+      "title": "Transfer transaction status"
+    },
+    "processing.transfer.v1.TransferTransactionType": {
+      "type": "string",
+      "enum": [
+        "TRANSFER_TRANSACTION_TYPE_UNSPECIFIED",
+        "TRANSFER_TRANSACTION_TYPE_TRANSFER",
+        "TRANSFER_TRANSACTION_TYPE_DELEGATE",
+        "TRANSFER_TRANSACTION_TYPE_RECLAIM",
+        "TRANSFER_TRANSACTION_TYPE_SEND_BURN_BASE_ASSET",
+        "TRANSFER_TRANSACTION_TYPE_ACCOUNT_ACTIVATION"
+      ],
+      "default": "TRANSFER_TRANSACTION_TYPE_UNSPECIFIED",
+      "title": "Transfer transaction type"
+    },
+    "processing.wallet.v1.Asset": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.wallet.v1.Assets": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.wallet.v1.Asset"
+          }
+        }
+      }
+    },
+    "processing.wallet.v1.AttachOwnerColdWalletsRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "totp": {
+          "type": "string"
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "processing.wallet.v1.AttachOwnerColdWalletsResponse": {
+      "type": "object"
+    },
+    "processing.wallet.v1.BlockchainAdditionalData": {
+      "type": "object",
+      "properties": {
+        "tron_data": {
+          "$ref": "#/definitions/processing.wallet.v1.BlockchainAdditionalData.TronData"
+        }
+      }
+    },
+    "processing.wallet.v1.BlockchainAdditionalData.TronData": {
+      "type": "object",
+      "properties": {
+        "available_energy_for_use": {
+          "type": "string"
+        },
+        "total_energy": {
+          "type": "string"
+        },
+        "available_bandwidth_for_use": {
+          "type": "string"
+        },
+        "total_bandwidth": {
+          "type": "string"
+        },
+        "stacked_trx": {
+          "type": "string"
+        },
+        "stacked_energy": {
+          "type": "string"
+        },
+        "stacked_bandwidth": {
+          "type": "string"
+        },
+        "stacked_energy_trx": {
+          "type": "string"
+        },
+        "stacked_bandwidth_trx": {
+          "type": "string"
+        },
+        "total_used_bandwidth": {
+          "type": "string"
+        },
+        "total_used_energy": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.wallet.v1.CreateOwnerHotWalletRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "external_wallet_id": {
+          "type": "string",
+          "title": "a store customer who has been given a hot wallet for payment"
+        },
+        "bitcoin_address_type": {
+          "$ref": "#/definitions/processing.common.v1.BitcoinAddressType"
+        },
+        "litecoin_address_type": {
+          "$ref": "#/definitions/processing.common.v1.LitecoinAddressType"
+        },
+        "dogecoin_address_type": {
+          "$ref": "#/definitions/processing.common.v1.DogecoinAddressType"
+        }
+      }
+    },
+    "processing.wallet.v1.CreateOwnerHotWalletResponse": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.wallet.v1.GetOwnerColdWalletsRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        }
+      }
+    },
+    "processing.wallet.v1.GetOwnerColdWalletsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.wallet.v1.WalletPreview"
+          }
+        }
+      }
+    },
+    "processing.wallet.v1.GetOwnerHotWalletsRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "external_wallet_id": {
+          "type": "string",
+          "title": "a store customer who has been given a hot wallet for payment"
+        },
+        "bitcoin_address_type": {
+          "$ref": "#/definitions/processing.common.v1.BitcoinAddressType"
+        },
+        "litecoin_address_type": {
+          "$ref": "#/definitions/processing.common.v1.LitecoinAddressType"
+        }
+      }
+    },
+    "processing.wallet.v1.GetOwnerHotWalletsResponse": {
+      "type": "object",
+      "properties": {
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.wallet.v1.GetOwnerHotWalletsResponse.HotAddress"
+          }
+        }
+      }
+    },
+    "processing.wallet.v1.GetOwnerHotWalletsResponse.HotAddress": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "external_wallet_id": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.wallet.v1.GetOwnerProcessingWalletsRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "tiny": {
+          "type": "boolean"
+        }
+      }
+    },
+    "processing.wallet.v1.GetOwnerProcessingWalletsResponse": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.wallet.v1.WalletPreview"
+          }
+        }
+      }
+    },
+    "processing.wallet.v1.MarkDirtyHotWalletRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "address": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.wallet.v1.MarkDirtyHotWalletResponse": {
+      "type": "object"
+    },
+    "processing.wallet.v1.WalletPreview": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "blockchain": {
+          "$ref": "#/definitions/processing.common.v1.Blockchain"
+        },
+        "assets": {
+          "$ref": "#/definitions/processing.wallet.v1.Assets"
+        },
+        "blockchain_additional_data": {
+          "$ref": "#/definitions/processing.wallet.v1.BlockchainAdditionalData"
+        }
+      }
+    }
+  }
+}

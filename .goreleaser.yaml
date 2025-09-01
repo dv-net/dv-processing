@@ -1,0 +1,59 @@
+version: 2
+
+project_name: dv-processing
+
+
+builds:
+  - id: "dv-processing"
+    main: "./cmd/app"
+    binary: "dv-processing"
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=gcc
+
+    ldflags:
+      - -installsuffix cgo
+      - -s -w -X main.version={{.Tag}} -X main.commitHash={{.ShortCommit}}
+
+checksum:
+  algorithm: sha1
+
+nfpms:
+  - id: "dv-processing"
+    maintainer: "dv-processing"
+    package_name: "dv-processing"
+    formats:
+      - rpm
+      - deb
+    bindir: /home/dv/processing
+    builds:
+      - "dv-processing"
+    contents:
+      - src: config.tiny.template.yaml
+        dst: /home/dv/processing/config.template.yaml
+        type: config
+      - src: artifacts/scripts/start.sh
+        dst: /home/dv/processing/start.sh
+      - src: artifacts/dv-processing.service
+        dst: /home/dv/processing/dv-processing.service
+    scripts:
+      preinstall: "artifacts/scripts/preinstall.sh"
+      postinstall: "artifacts/scripts/postinstall.sh"
+      preremove: "artifacts/scripts/preremove.sh"
+      postremove: "artifacts/scripts/postremove.sh"
+
+archives:
+  - id: "dv-processing"
+    format: binary
+
+furies:
+  - account: "{{ .Env.FURY_ACCOUNT }}"
+  - formats:
+      - rpm
+      - deb
+  - ids:
+      - dv-processing

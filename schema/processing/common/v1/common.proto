@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package processing.common.v1;
+
+option go_package = "api/processing/common/v1";
+
+/*
+  Business diagram:
+    client [1..m]
+     |_ owner [1..n]
+        |_ hot wallet [1..i]
+        |_ cold wallet [1..j]
+        |_ processing wallet [1..blockchains]
+*/
+
+enum Blockchain {
+  BLOCKCHAIN_UNSPECIFIED = 0;
+  BLOCKCHAIN_TRON = 1;
+  BLOCKCHAIN_BITCOIN = 2;
+  BLOCKCHAIN_ETHEREUM = 3;
+  BLOCKCHAIN_LITECOIN = 4;
+  BLOCKCHAIN_BITCOINCASH = 5;
+  BLOCKCHAIN_BINANCE_SMART_CHAIN = 6;
+  BLOCKCHAIN_POLYGON = 7;
+  BLOCKCHAIN_ARBITRUM = 8;
+  BLOCKCHAIN_OPTIMISM = 9;
+  BLOCKCHAIN_LINEA = 10;
+  BLOCKCHAIN_SOLANA = 11;
+  BLOCKCHAIN_MONERO = 12;
+  BLOCKCHAIN_DOGECOIN = 13;
+  BLOCKCHAIN_TON = 14;
+}
+
+enum BitcoinAddressType {
+  BITCOIN_ADDRESS_TYPE_UNSPECIFIED = 0;
+  // Legacy
+  BITCOIN_ADDRESS_TYPE_P2PKH = 1;
+  // SegWit
+  BITCOIN_ADDRESS_TYPE_P2SH = 2;
+  // Native SegWit or Bech32
+  BITCOIN_ADDRESS_TYPE_SEGWIT = 3;
+  // Taproot address or Bech32m
+  BITCOIN_ADDRESS_TYPE_P2TR = 4;
+}
+
+enum LitecoinAddressType {
+  LITECOIN_ADDRESS_TYPE_UNSPECIFIED = 0;
+  // Legacy
+  LITECOIN_ADDRESS_TYPE_P2PKH = 1;
+  // SegWit
+  LITECOIN_ADDRESS_TYPE_P2SH = 2;
+  // Native SegWit or Bech32
+  LITECOIN_ADDRESS_TYPE_SEGWIT = 3;
+  // Taproot address or Bech32m
+  LITECOIN_ADDRESS_TYPE_P2TR = 4;
+}
+
+enum DogecoinAddressType {
+  DOGECOIN_ADDRESS_TYPE_UNSPECIFIED = 0;
+  // Legacy
+  DOGECOIN_ADDRESS_TYPE_P2PKH = 1;
+}
+
+enum IncomingWalletType {
+  INCOMING_WALLET_TYPE_UNSPECIFIED = 0;
+  INCOMING_WALLET_TYPE_HOT = 1;
+  INCOMING_WALLET_TYPE_PROCESSING = 2;
+}
+
+enum TransactionType {
+  TRANSACTION_TYPE_UNSPECIFIED = 0;
+  TRANSACTION_TYPE_TRANSFER = 1;
+  TRANSACTION_TYPE_DEPOSIT = 2;
+}
+
+enum TransferStatus {
+  TRANSFER_STATUS_UNSPECIFIED = 0;
+  TRANSFER_STATUS_ACCEPTED = 1;
+  TRANSFER_STATUS_SUCCESS = 2;
+  TRANSFER_STATUS_FAILED = 3;
+}

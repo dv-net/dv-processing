@@ -1,0 +1,56 @@
+{{ define "readme" }}# {{ .AppName }}
+
+## Usage
+
+```text
+{{ .AppHelp }}```
+
+## Environments
+
+{{ .Environments }}
+
+## Install Systemd service
+
+Use the following command to install the systemd service
+
+```bash
+./{{ .AppBin }} utils systemd
+```
+
+## Addresses for tests
+
+```text
+Tron Bybit wallet: TU4vEruvZwLLkSfV9bNw12EJTPvNr7Pvaa
+Ethereum Coinbase cold wallet: 0xb5d85cbf7cb3ee0d56b3bb207d5fc4b82f43f511
+Polygon polymarket: 0xa7fd99748ce527eadc0bdac60cba8a4ef4090f7c
+Litecoin ltc1qpkme9t7h3sd47ku3mlyrysqwf5uy9xy52yqss4
+Bitcoin: bc1qryhgpmfv03qjhhp2dj8nw8g4ewg08jzmgy3cyx
+Bitcoin cash: qp028nlln35nwnv5a9dssw9w57z5n765rgenr3suw6
+```
+{{ end }}
+
+## CLI Tools
+
+### How to reclaim tron resources
+
+```text
+NAME:
+   dv-processing blockchain tron reclaim-resource - reclaim resource
+
+USAGE:
+   dv-processing blockchain tron reclaim-resource [command options]
+
+OPTIONS:
+   --configs value, -c value [ --configs value, -c value ]  allows you to use your own paths to configuration files, separated by commas (config.yaml,config.prod.yml,.env) (default: "config.yaml")
+   --processing-address value, --pa value                   processing wallet address
+   --destination-address value, --da value                  destination address
+   --type value                                             resource type (bandwidth or energy)
+   --help, -h                                               show help
+```
+
+#### Example
+
+```bash
+./dv-processing blockchain tron reclaim-resource -pa TQ6DkBmxz3Zk7neh8mwmmkfJsVjrE9wwjY -da TAoG3QdbgZ7saGBHiXVHRgdNJVpwUGqZZh -type bandwidth
+```
+

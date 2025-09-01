@@ -1,13 +1,10 @@
 bin/
 data/
 dev/
-artifacts/
 
 .env
 .env.make
 *.env
-
-pkg/walletsdk/btc/btc_test.go
 
 config.yaml
 dist/

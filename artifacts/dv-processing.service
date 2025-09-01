@@ -1,0 +1,17 @@
+[Unit]
+Description=DV Processing service
+After=network.target
+
+[Service]
+User=dv
+Restart=always
+RestartSec=3
+WorkingDirectory=/home/dv/processing
+ExecStart=/bin/bash /home/dv/processing/start.sh
+
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=dv-processing
+
+[Install]
+WantedBy=multi-user.target

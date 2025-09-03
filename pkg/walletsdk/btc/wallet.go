@@ -80,10 +80,6 @@ func (s WalletSDK) GenerateAddress(addressType AddressType, mnemonic, passphrase
 		return nil, fmt.Errorf("invalid mnemonic")
 	}
 
-	if passphrase == "" {
-		return nil, fmt.Errorf("passphrase is required")
-	}
-
 	if err := addressType.Validate(); err != nil {
 		return nil, err
 	}

@@ -18,3 +18,5 @@ tmp
 build
 
 .netrc
+artifacts/.release-notes/*
+artifacts/.keys/*

@@ -57,6 +57,7 @@ archives:
   - id: "dv-processing"
     format: binary
 
+signs:
   - artifacts: all
     args: ["--batch", "-u", "{{ .Env.GPG_FINGERPRINT }}", "--output", "${signature}", "--detach-sign", "${artifact}"]
 

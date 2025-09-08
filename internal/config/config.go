@@ -44,7 +44,6 @@ type Config struct {
 	Updater            Updater       `yaml:"updater"`
 }
 
-// IsEnabledSeedEncryption always returns true. It uses for removing this kostyl in future.
 func (c Config) IsEnabledSeedEncryption() bool { return true }
 
 type Watcher struct {

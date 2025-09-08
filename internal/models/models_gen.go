@@ -135,6 +135,7 @@ type Owner struct {
 	OtpConfirmed bool               `db:"otp_confirmed" json:"otp_confirmed"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	OtpData      pgtype.Text        `db:"otp_data" json:"otp_data"`
 }
 
 type ProcessedBlock struct {

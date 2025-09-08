@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 
 ### Unreleased
 - Reworked hot wallet key retrieval to simplify address handling [DV-3142]
+- Added two-factor secret encryption [DV-2526]
 
 ### [0.6.6] - 2025-07-17
 

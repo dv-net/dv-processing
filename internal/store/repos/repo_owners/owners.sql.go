@@ -30,6 +30,15 @@ func (q *Queries) DisableTwoFactorAuth(ctx context.Context, otpSecret pgtype.Tex
 	return err
 }
 
+const setOTPData = `-- name: SetOTPData :exec
+update owners set otp_data = $2 where id = $1
+`
+
+func (q *Queries) SetOTPData(ctx context.Context, iD uuid.UUID, otpData pgtype.Text) error {
+	_, err := q.db.Exec(ctx, setOTPData, iD, otpData)
+	return err
+}
+
 const setOTPSecret = `-- name: SetOTPSecret :exec
 update owners set otp_secret=$2 where id=$1
 `

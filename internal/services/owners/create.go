@@ -2,6 +2,7 @@ package owners
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/dv-net/go-bip39"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
@@ -117,11 +119,30 @@ func (s *Service) Create(ctx context.Context, params CreateParams) (*models.Owne
 			return fmt.Errorf("generate totp secret: %w", err)
 		}
 
-		// set otp secret
-		if err := s.store.Owners(repos.WithTx(dbTx)).SetOTPSecret(ctx, owner.ID, pgtypeutils.EncodeText(
-			utils.Pointer(totpSecret.Secret()),
-		)); err != nil {
+		if err := s.store.Owners(repos.WithTx(dbTx)).SetOTPSecret(ctx, owner.ID, pgtypeutils.EncodeText(utils.Pointer(totpSecret.Secret()))); err != nil {
 			return fmt.Errorf("set otp secret: %w", err)
+		}
+
+		totpData := OTPData{
+			OtpSecret:    totpSecret.Secret(),
+			OtpConfirmed: false,
+		}
+
+		totpDataStr, err := json.Marshal(totpData)
+		if err != nil {
+			return fmt.Errorf("marshal totp data: %w", err)
+		}
+
+		encryptedTotpData, err := encryption.Encrypt(string(totpDataStr), owner.ID.String())
+		if err != nil {
+			return fmt.Errorf("encrypt 2FA secret: %w", err)
+		}
+
+		if err := s.store.Owners(repos.WithTx(dbTx)).SetOTPData(ctx, owner.ID, pgtype.Text{
+			String: encryptedTotpData,
+			Valid:  true,
+		}); err != nil {
+			return fmt.Errorf("set otp data: %w", err)
 		}
 
 		// create processing wallets for all available blockchains

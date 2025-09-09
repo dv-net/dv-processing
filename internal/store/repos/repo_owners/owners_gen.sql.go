@@ -14,9 +14,9 @@ import (
 )
 
 const create = `-- name: Create :one
-INSERT INTO owners (external_id, client_id, mnemonic, pass_phrase, created_at)
-	VALUES ($1, $2, $3, $4, now())
-	RETURNING id, external_id, client_id, mnemonic, pass_phrase, otp_secret, otp_confirmed, created_at, updated_at
+INSERT INTO owners (external_id, client_id, mnemonic, pass_phrase, created_at, otp_data)
+	VALUES ($1, $2, $3, $4, now(), $5)
+	RETURNING id, external_id, client_id, mnemonic, pass_phrase, otp_secret, otp_confirmed, created_at, updated_at, otp_data
 `
 
 type CreateParams struct {
@@ -24,6 +24,7 @@ type CreateParams struct {
 	ClientID   uuid.UUID   `db:"client_id" json:"client_id" validate:"required,uuid4"`
 	Mnemonic   string      `db:"mnemonic" json:"mnemonic" validate:"required"`
 	PassPhrase pgtype.Text `db:"pass_phrase" json:"pass_phrase"`
+	OtpData    pgtype.Text `db:"otp_data" json:"otp_data"`
 }
 
 func (q *Queries) Create(ctx context.Context, arg CreateParams) (*models.Owner, error) {
@@ -32,6 +33,7 @@ func (q *Queries) Create(ctx context.Context, arg CreateParams) (*models.Owner, 
 		arg.ClientID,
 		arg.Mnemonic,
 		arg.PassPhrase,
+		arg.OtpData,
 	)
 	var i models.Owner
 	err := row.Scan(
@@ -44,6 +46,7 @@ func (q *Queries) Create(ctx context.Context, arg CreateParams) (*models.Owner, 
 		&i.OtpConfirmed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OtpData,
 	)
 	return &i, err
 }
@@ -60,7 +63,7 @@ func (q *Queries) ExistsByExternalID(ctx context.Context, externalID string) (bo
 }
 
 const getAll = `-- name: GetAll :many
-SELECT id, external_id, client_id, mnemonic, pass_phrase, otp_secret, otp_confirmed, created_at, updated_at FROM owners
+SELECT id, external_id, client_id, mnemonic, pass_phrase, otp_secret, otp_confirmed, created_at, updated_at, otp_data FROM owners
 `
 
 func (q *Queries) GetAll(ctx context.Context) ([]*models.Owner, error) {
@@ -82,6 +85,7 @@ func (q *Queries) GetAll(ctx context.Context) ([]*models.Owner, error) {
 			&i.OtpConfirmed,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OtpData,
 		); err != nil {
 			return nil, err
 		}
@@ -94,7 +98,7 @@ func (q *Queries) GetAll(ctx context.Context) ([]*models.Owner, error) {
 }
 
 const getByID = `-- name: GetByID :one
-SELECT id, external_id, client_id, mnemonic, pass_phrase, otp_secret, otp_confirmed, created_at, updated_at FROM owners WHERE id=$1 LIMIT 1
+SELECT id, external_id, client_id, mnemonic, pass_phrase, otp_secret, otp_confirmed, created_at, updated_at, otp_data FROM owners WHERE id=$1 LIMIT 1
 `
 
 func (q *Queries) GetByID(ctx context.Context, id uuid.UUID) (*models.Owner, error) {
@@ -110,6 +114,7 @@ func (q *Queries) GetByID(ctx context.Context, id uuid.UUID) (*models.Owner, err
 		&i.OtpConfirmed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OtpData,
 	)
 	return &i, err
 }

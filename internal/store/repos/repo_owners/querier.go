@@ -19,6 +19,7 @@ type Querier interface {
 	ExistsByExternalID(ctx context.Context, externalID string) (bool, error)
 	GetAll(ctx context.Context) ([]*models.Owner, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Owner, error)
+	SetOTPData(ctx context.Context, iD uuid.UUID, otpData pgtype.Text) error
 	SetOTPSecret(ctx context.Context, iD uuid.UUID, otpSecret pgtype.Text) error
 	UpdateMnemonic(ctx context.Context, iD uuid.UUID, mnemonic string) error
 }

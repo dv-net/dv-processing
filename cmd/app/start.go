@@ -139,6 +139,16 @@ func startCMD() *cli.Command { //nolint:funlen
 				return fmt.Errorf("check db version error: %w", err)
 			}
 
+			// encrypt OTP data if not already encrypted
+			if err := baseSvc.Owners().EncryptOTPDataForAllOwners(appCtx); err != nil {
+				return fmt.Errorf("encrypt OTP data for all owners: %w", err)
+			}
+
+			// encrypt mnemonics if not already encrypted
+			if err := baseSvc.Owners().EncryptSeedsForAllOwners(appCtx); err != nil {
+				return fmt.Errorf("encrypt mnemonics for all owners: %w", err)
+			}
+
 			// init task manager
 			tm, err := taskmanager.New(l, conf, st, baseSvc)
 			if err != nil {

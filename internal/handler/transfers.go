@@ -108,10 +108,16 @@ func (s *transfersServer) Create(ctx context.Context, req *connect.Request[trans
 
 	newTransfer, err := s.bs.Transfers().Create(ctx, params)
 	if err != nil {
-		rpcCode, err := rpccode.NewConnectError(connect.CodeInternal, err)
-
-		s.logger.Errorf("failed to create transfer [rpc code: %d]: %s", rpcCode, err.Error())
-
+		rpcError, ok := rpccode.IsRPCError(err)
+		if ok && (rpcError.Code >= rpccode.RPCCodeNotEnoughResources && rpcError.Code <= rpccode.RPCCodeAddressEmptyBalance) {
+			s.logger.Debug(
+				"processing code status",
+				"grpc_code", connect.CodeOf(rpcError.Error).String(),
+				"rpc_code", rpcError.Code,
+			)
+			return nil, err
+		}
+		s.logger.Errorf("failed to create transfer: %s", err.Error())
 		return nil, err
 	}
 

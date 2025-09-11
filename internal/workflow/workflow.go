@@ -60,7 +60,7 @@ func (w *Workflow) Run(ctx context.Context) (err error) {
 			failureErr := w.OnFailureFn(ctx, w, err)
 			if failureErr != nil {
 				if w.logger != nil {
-					w.Errorf("workflow on failure: %s", failureErr)
+					w.Debugf("workflow on failure: %s", failureErr)
 				}
 			}
 

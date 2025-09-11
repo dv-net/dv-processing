@@ -21,7 +21,7 @@ start:
 
 .PHONY: build
 build:
-	go build -o bin/$(appName) ./cmd/app
+	go build $(GO_OPT_BASE) -o bin/$(appName) ./cmd/app
 
 fmt:
 	@gofumpt -l -w .

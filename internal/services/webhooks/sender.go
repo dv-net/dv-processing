@@ -129,7 +129,7 @@ func (s *sender) processAllUnsentWebhooks(ctx context.Context) error {
 		}
 	}
 
-	s.logger.Infow(
+	s.logger.Debugw(
 		"completed processing unsent webhooks",
 		"total", len(items),
 		"sent", sentWebhooks.Load(),

@@ -110,7 +110,7 @@ func (s *transfersServer) Create(ctx context.Context, req *connect.Request[trans
 	if err != nil {
 		rpcCode, err := rpccode.NewConnectError(connect.CodeInternal, err)
 
-		s.logger.Errorf("failed to create transfer [rpc code: %d]: %s", rpcCode, err.Error())
+		s.logger.Debugf("failed to create transfer [rpc code: %d]: %s", rpcCode, err.Error())
 
 		return nil, err
 	}

@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 
 ### Unreleased
 
+### [0.9.4] - 2025-09-15
 - Sign packages with GPG [DV-3298]
 - Reworked hot wallet key retrieval to simplify address handling [DV-3142]
+- Preserve logging on appropriate levels based on RPC code returned from service [DV-3337]
+- Reduce log levels across services to debug for less verbosity [DV-3350]
 
 ### [0.6.6] - 2025-07-17
 

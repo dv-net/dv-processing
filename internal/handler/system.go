@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	systemv1 "github.com/dv-net/dv-processing/api/processing/system/v1"
 	"github.com/dv-net/dv-processing/api/processing/system/v1/systemv1connect"
@@ -65,4 +66,26 @@ func (s *systemService) UpdateToNewVersion(ctx context.Context, _ *connect.Reque
 	return connect.NewResponse(&systemv1.UpdateToNewVersionResponse{
 		Status: "Success update",
 	}), nil
+}
+
+func (s *systemService) GetLastLogs(ctx context.Context, _ *connect.Request[systemv1.GetLastLogsRequest]) (*connect.Response[systemv1.GetLastLogsResponse], error) {
+	logs, err := s.bs.System().GetLogs(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	entries := make([]*systemv1.LogEntry, 0, len(logs))
+	for _, l := range logs {
+		entries = append(entries, &systemv1.LogEntry{
+			Time:    timestamppb.New(l.Time),
+			Level:   l.Level,
+			Message: l.Message,
+		})
+	}
+
+	resp := &systemv1.GetLastLogsResponse{
+		Logs: entries,
+	}
+
+	return connect.NewResponse(resp), nil
 }

@@ -424,6 +424,39 @@
         ]
       }
     },
+    "/processing.system.v1.SystemService/GetLastLogs": {
+      "post": {
+        "summary": "Get last memory logs",
+        "operationId": "SystemService_GetLastLogs",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.GetLastLogsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.system.v1.GetLastLogsRequest"
+            }
+          }
+        ],
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
     "/processing.system.v1.SystemService/Info": {
       "post": {
         "summary": "System info (version etc)",
@@ -1148,6 +1181,21 @@
         }
       }
     },
+    "processing.system.v1.GetLastLogsRequest": {
+      "type": "object"
+    },
+    "processing.system.v1.GetLastLogsResponse": {
+      "type": "object",
+      "properties": {
+        "logs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/processing.system.v1.LogEntry"
+          }
+        }
+      }
+    },
     "processing.system.v1.InfoRequest": {
       "type": "object"
     },
@@ -1158,6 +1206,21 @@
           "type": "string"
         },
         "commit": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.system.v1.LogEntry": {
+      "type": "object",
+      "properties": {
+        "time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "level": {
+          "type": "string"
+        },
+        "message": {
           "type": "string"
         }
       }

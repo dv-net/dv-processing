@@ -14,11 +14,12 @@ import (
 )
 
 var (
-	appName    = "dv-processing"
-	version    = "local"
-	commitHash = "unknown"
-	buildDate  = "unknown"
-	envPrefix  = "PROCESSING"
+	appName             = "dv-processing"
+	version             = "local"
+	commitHash          = "unknown"
+	buildDate           = "unknown"
+	envPrefix           = "PROCESSING"
+	logMemoryBufferSize = 1000
 )
 
 func getVersion() string { return version + "-" + commitHash }
@@ -37,6 +38,7 @@ func defaultLoggerOpts() []logger.Option {
 	return []logger.Option{
 		logger.WithAppName(appName),
 		logger.WithAppVersion(getVersion()),
+		logger.WithMemoryBuffer(logMemoryBufferSize),
 	}
 }
 

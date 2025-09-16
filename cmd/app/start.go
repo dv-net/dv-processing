@@ -72,7 +72,7 @@ func startCMD() *cli.Command { //nolint:funlen
 			st := store.New(psql)
 
 			// init system service
-			systemSvc := system.New(st, version, commitHash)
+			systemSvc := system.New(l, st, version, commitHash)
 			pID, err := systemSvc.ProcessingID(ctx)
 			if err != nil {
 				return fmt.Errorf("processing ID: %w", err)

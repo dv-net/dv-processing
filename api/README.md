@@ -50,8 +50,11 @@
 - [processing/system/v1/system.proto](#processing_system_v1_system-proto)
     - [CheckNewVersionRequest](#processing-system-v1-CheckNewVersionRequest)
     - [CheckNewVersionResponse](#processing-system-v1-CheckNewVersionResponse)
+    - [GetLastLogsRequest](#processing-system-v1-GetLastLogsRequest)
+    - [GetLastLogsResponse](#processing-system-v1-GetLastLogsResponse)
     - [InfoRequest](#processing-system-v1-InfoRequest)
     - [InfoResponse](#processing-system-v1-InfoResponse)
+    - [LogEntry](#processing-system-v1-LogEntry)
     - [UpdateToNewVersionRequest](#processing-system-v1-UpdateToNewVersionRequest)
     - [UpdateToNewVersionResponse](#processing-system-v1-UpdateToNewVersionResponse)
   
@@ -726,6 +729,31 @@ Service which interacts with owner
 
 
 
+<a name="processing-system-v1-GetLastLogsRequest"></a>
+
+### GetLastLogsRequest
+
+
+
+
+
+
+
+<a name="processing-system-v1-GetLastLogsResponse"></a>
+
+### GetLastLogsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| logs | [LogEntry](#processing-system-v1-LogEntry) | repeated |  |
+
+
+
+
+
+
 <a name="processing-system-v1-InfoRequest"></a>
 
 ### InfoRequest
@@ -746,6 +774,23 @@ Service which interacts with owner
 | ----- | ---- | ----- | ----------- |
 | version | [string](#string) |  |  |
 | commit | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="processing-system-v1-LogEntry"></a>
+
+### LogEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| level | [string](#string) |  |  |
+| message | [string](#string) |  |  |
 
 
 
@@ -793,6 +838,7 @@ Service which provides system information
 | Info | [InfoRequest](#processing-system-v1-InfoRequest) | [InfoResponse](#processing-system-v1-InfoResponse) | System info (version etc) |
 | CheckNewVersion | [CheckNewVersionRequest](#processing-system-v1-CheckNewVersionRequest) | [CheckNewVersionResponse](#processing-system-v1-CheckNewVersionResponse) | Check new version from updater |
 | UpdateToNewVersion | [UpdateToNewVersionRequest](#processing-system-v1-UpdateToNewVersionRequest) | [UpdateToNewVersionResponse](#processing-system-v1-UpdateToNewVersionResponse) | Update Processing from updater |
+| GetLastLogs | [GetLastLogsRequest](#processing-system-v1-GetLastLogsRequest) | [GetLastLogsResponse](#processing-system-v1-GetLastLogsResponse) | Get last memory logs |
 
  
 

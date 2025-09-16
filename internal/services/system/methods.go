@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dv-net/dv-processing/internal/constants"
+	"github.com/dv-net/mx/logger"
 
 	"github.com/dv-net/dv-processing/sql"
 	"github.com/jackc/pgx/v5"
@@ -100,4 +101,9 @@ func (s service) SetDvSecretKey(ctx context.Context, secret string) error {
 	s.store.Cache().GlobalSettings().Store(constants.DVAdminSecretKeyName, set)
 
 	return nil
+}
+
+func (s service) GetLogs(_ context.Context) ([]logger.MemoryLog, error) {
+	logs := s.logger.LastLogs()
+	return logs, nil
 }

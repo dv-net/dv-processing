@@ -41,6 +41,9 @@ const (
 	// SystemServiceUpdateToNewVersionProcedure is the fully-qualified name of the SystemService's
 	// UpdateToNewVersion RPC.
 	SystemServiceUpdateToNewVersionProcedure = "/processing.system.v1.SystemService/UpdateToNewVersion"
+	// SystemServiceGetLastLogsProcedure is the fully-qualified name of the SystemService's GetLastLogs
+	// RPC.
+	SystemServiceGetLastLogsProcedure = "/processing.system.v1.SystemService/GetLastLogs"
 )
 
 // SystemServiceClient is a client for the processing.system.v1.SystemService service.
@@ -51,6 +54,8 @@ type SystemServiceClient interface {
 	CheckNewVersion(context.Context, *connect.Request[v1.CheckNewVersionRequest]) (*connect.Response[v1.CheckNewVersionResponse], error)
 	// Update Processing from updater
 	UpdateToNewVersion(context.Context, *connect.Request[v1.UpdateToNewVersionRequest]) (*connect.Response[v1.UpdateToNewVersionResponse], error)
+	// Get last memory logs
+	GetLastLogs(context.Context, *connect.Request[v1.GetLastLogsRequest]) (*connect.Response[v1.GetLastLogsResponse], error)
 }
 
 // NewSystemServiceClient constructs a client for the processing.system.v1.SystemService service. By
@@ -82,6 +87,12 @@ func NewSystemServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(systemServiceMethods.ByName("UpdateToNewVersion")),
 			connect.WithClientOptions(opts...),
 		),
+		getLastLogs: connect.NewClient[v1.GetLastLogsRequest, v1.GetLastLogsResponse](
+			httpClient,
+			baseURL+SystemServiceGetLastLogsProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("GetLastLogs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -90,6 +101,7 @@ type systemServiceClient struct {
 	info               *connect.Client[v1.InfoRequest, v1.InfoResponse]
 	checkNewVersion    *connect.Client[v1.CheckNewVersionRequest, v1.CheckNewVersionResponse]
 	updateToNewVersion *connect.Client[v1.UpdateToNewVersionRequest, v1.UpdateToNewVersionResponse]
+	getLastLogs        *connect.Client[v1.GetLastLogsRequest, v1.GetLastLogsResponse]
 }
 
 // Info calls processing.system.v1.SystemService.Info.
@@ -107,6 +119,11 @@ func (c *systemServiceClient) UpdateToNewVersion(ctx context.Context, req *conne
 	return c.updateToNewVersion.CallUnary(ctx, req)
 }
 
+// GetLastLogs calls processing.system.v1.SystemService.GetLastLogs.
+func (c *systemServiceClient) GetLastLogs(ctx context.Context, req *connect.Request[v1.GetLastLogsRequest]) (*connect.Response[v1.GetLastLogsResponse], error) {
+	return c.getLastLogs.CallUnary(ctx, req)
+}
+
 // SystemServiceHandler is an implementation of the processing.system.v1.SystemService service.
 type SystemServiceHandler interface {
 	// System info (version etc)
@@ -115,6 +132,8 @@ type SystemServiceHandler interface {
 	CheckNewVersion(context.Context, *connect.Request[v1.CheckNewVersionRequest]) (*connect.Response[v1.CheckNewVersionResponse], error)
 	// Update Processing from updater
 	UpdateToNewVersion(context.Context, *connect.Request[v1.UpdateToNewVersionRequest]) (*connect.Response[v1.UpdateToNewVersionResponse], error)
+	// Get last memory logs
+	GetLastLogs(context.Context, *connect.Request[v1.GetLastLogsRequest]) (*connect.Response[v1.GetLastLogsResponse], error)
 }
 
 // NewSystemServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -142,6 +161,12 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(systemServiceMethods.ByName("UpdateToNewVersion")),
 		connect.WithHandlerOptions(opts...),
 	)
+	systemServiceGetLastLogsHandler := connect.NewUnaryHandler(
+		SystemServiceGetLastLogsProcedure,
+		svc.GetLastLogs,
+		connect.WithSchema(systemServiceMethods.ByName("GetLastLogs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/processing.system.v1.SystemService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SystemServiceInfoProcedure:
@@ -150,6 +175,8 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 			systemServiceCheckNewVersionHandler.ServeHTTP(w, r)
 		case SystemServiceUpdateToNewVersionProcedure:
 			systemServiceUpdateToNewVersionHandler.ServeHTTP(w, r)
+		case SystemServiceGetLastLogsProcedure:
+			systemServiceGetLastLogsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -169,4 +196,8 @@ func (UnimplementedSystemServiceHandler) CheckNewVersion(context.Context, *conne
 
 func (UnimplementedSystemServiceHandler) UpdateToNewVersion(context.Context, *connect.Request[v1.UpdateToNewVersionRequest]) (*connect.Response[v1.UpdateToNewVersionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("processing.system.v1.SystemService.UpdateToNewVersion is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) GetLastLogs(context.Context, *connect.Request[v1.GetLastLogsRequest]) (*connect.Response[v1.GetLastLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("processing.system.v1.SystemService.GetLastLogs is not implemented"))
 }

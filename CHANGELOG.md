@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 
 ### Unreleased
 - Add memory buffer for processing logs [DV-3361]
+- Add dockerfile [DV-3387]
 
 ### [0.9.4] - 2025-09-15
 - Sign packages with GPG [DV-3298]

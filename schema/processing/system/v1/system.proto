@@ -1,6 +1,8 @@
 syntax = "proto3";
 package processing.system.v1;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "api/processing/system/v1";
 
 // Service which provides system information
@@ -11,6 +13,8 @@ service SystemService {
   rpc CheckNewVersion(CheckNewVersionRequest) returns (CheckNewVersionResponse);
   // Update Processing from updater
   rpc UpdateToNewVersion(UpdateToNewVersionRequest) returns (UpdateToNewVersionResponse);
+  // Get last memory logs
+  rpc GetLastLogs(GetLastLogsRequest) returns (GetLastLogsResponse);
 }
 
 message InfoRequest {}
@@ -33,4 +37,16 @@ message UpdateToNewVersionRequest {}
 
 message UpdateToNewVersionResponse {
   string status = 1;
+}
+
+message GetLastLogsRequest {}
+
+message LogEntry {
+  google.protobuf.Timestamp time = 1;
+  string level = 2;
+  string message = 3;
+}
+
+message GetLastLogsResponse {
+  repeated LogEntry logs = 1;
 }

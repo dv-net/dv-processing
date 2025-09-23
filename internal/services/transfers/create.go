@@ -45,7 +45,7 @@ func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*model
 		return nil, err
 	}
 
-	s.logger.Infof("received transfer request %s", string(reqBytes))
+	s.logger.Debugf("received transfer request %s", string(reqBytes))
 
 	if !s.config.Transfers.Enabled {
 		return nil, fmt.Errorf("transfers service is disabled")

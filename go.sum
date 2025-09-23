@@ -102,8 +102,8 @@ github.com/dv-net/dv-proto v0.5.1 h1:SUmKb2ja7qyMz6g4z0Jw/y+US7F0zq4qUYq1kFoSv2M
 github.com/dv-net/dv-proto v0.5.1/go.mod h1:X8D+6FZu/YX0hL+Tb2LhozNUdVcQgcLMsmTW9MrZl5o=
 github.com/dv-net/go-bip39 v1.1.1 h1:KRJwVNjgJPipMfwVN0qbAJG17fMu4BvjDD/tnP35ers=
 github.com/dv-net/go-bip39 v1.1.1/go.mod h1:zbcC/5LED0EfiNZdvDoLgcyl+9mfMH/bEQdxTn4hj/Q=
-github.com/dv-net/mx v0.1.0 h1:L1ZHc8cs/IDAqfao6HcY9m115a/DwKyjrQ07QgWXbZQ=
-github.com/dv-net/mx v0.1.0/go.mod h1:/yI+4YU8Bdu6JOqCNSwJRSXulcrhCueEyT4Tew3rjEM=
+github.com/dv-net/mx v0.1.1 h1:+Y02hBmGY2JRxUR/kHM+TPbs8863CVnxrYsukXDR8CI=
+github.com/dv-net/mx v0.1.1/go.mod h1:/yI+4YU8Bdu6JOqCNSwJRSXulcrhCueEyT4Tew3rjEM=
 github.com/dv-net/mx/clients/connectrpc_client v0.0.0-20250826134925-03bc3492dba3 h1:aIc6j0KlIhLR6IbT52ohB60kpzZrsYcyQdmVEL9q5/0=
 github.com/dv-net/mx/clients/connectrpc_client v0.0.0-20250826134925-03bc3492dba3/go.mod h1:liQr5ATI0QaD37h/4TgFr+2dPQhwviVsgCs82J+vPQk=
 github.com/dv-net/mx/transport/connectrpc_transport v0.0.0-20250826134925-03bc3492dba3 h1:TYeA/Fe63hA7YpNshNaAz8uKyAfiuY6EnU9Yz1/ZopI=

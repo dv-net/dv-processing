@@ -1,10 +1,8 @@
-name: CI
+name: Lint and Test
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
 
 jobs:
   build:
@@ -22,9 +20,7 @@ jobs:
       - name: Cache Go modules
         uses: actions/cache@v4
         with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
+          path: ${{ github.go.gopath }}/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -36,3 +32,6 @@ jobs:
 
       - name: Run linter
         run: golangci-lint run ./...
+
+#      - name: Run tests
+#        run: go test -v ./...

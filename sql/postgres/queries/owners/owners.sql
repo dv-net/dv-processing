@@ -9,3 +9,6 @@ update owners set otp_secret=$2 where id=$1;
 
 -- name: UpdateMnemonic :exec
 update owners set mnemonic = $2 where id = $1;
+
+-- name: SetOTPData :exec
+update owners set otp_data = $2 where id = $1;

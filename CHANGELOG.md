@@ -12,8 +12,10 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ### [0.9.5] - 2025-09-15
 - Add memory buffer for processing logs [DV-3361]
 - Add dockerfile [DV-3387]
+- Added two-factor secret encryption [DV-2526]
 
 ### [0.9.4] - 2025-09-15
+
 - Sign packages with GPG [DV-3298]
 - Reworked hot wallet key retrieval to simplify address handling [DV-3142]
 - Preserve logging on appropriate levels based on RPC code returned from service [DV-3337]

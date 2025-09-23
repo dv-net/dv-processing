@@ -9,7 +9,6 @@ import (
 	"github.com/dv-net/dv-processing/pkg/encryption"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/pquerna/otp/totp"
 )
 
 type GetSeedsResponse struct {
@@ -28,20 +27,17 @@ func (s *Service) GetSeeds(ctx context.Context, ownerID uuid.UUID, otp string) (
 		return nil, fmt.Errorf("get owner: %w", err)
 	}
 
-	if owner.OtpSecret.String == "" {
-		return nil, fmt.Errorf("owner has no secret")
-	}
-
 	if owner.Mnemonic == "" {
 		return nil, fmt.Errorf("owner has no mnemonic")
 	}
 
-	if !owner.OtpConfirmed {
+	if !s.getOTPConfirmed(owner) {
 		return nil, fmt.Errorf("two-factor authenticator is disabled")
 	}
 
-	if ok := totp.Validate(otp, owner.OtpSecret.String); !ok {
-		return nil, fmt.Errorf("failed to validate totp")
+	// get 2FA secret from either new or legacy format
+	if ok := s.ValidateTwoFactorToken(ctx, owner.ID, otp); ok != nil {
+		return nil, fmt.Errorf("validate otp: %w", ok)
 	}
 
 	// if owner.PassPhrase.String == "" {

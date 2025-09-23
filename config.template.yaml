@@ -71,10 +71,10 @@ blockchain:
     attributes:
       max_gas_price: 130.0
   arbitrum:
-    enabled: false
+    enabled: true
     network: mainnet
     node:
-      address: ""
+      address: https://node-arbitrum.dv.net
     attributes:
       max_gas_price: 1.0
   optimism:
@@ -125,13 +125,13 @@ blockchain:
       secret: qh1lFWjT4UPlY0kN
       use_tls: true
   dogecoin:
-    enabled: false
+    enabled: true
     network: mainnet
     attributes:
       fee_per_byte: 50000
       min_utxo_amount: 0
     node:
-      address: node-doge.dv.net
+      address: node-doge.dv.net:443
       login: rpc
       secret: qh1lFWjT4UPlY0kN
       use_tls: true

@@ -278,7 +278,6 @@ func (s *Service) ValidateTwoFactorToken(ctx context.Context, ownerID uuid.UUID,
 	if err != nil {
 		return fmt.Errorf("get otp secret: %w", err)
 	}
-
 	if ok := totp.Validate(token, otpSecret); !ok {
 		return fmt.Errorf("failed to validate totp")
 	}

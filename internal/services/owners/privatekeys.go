@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/pquerna/otp/totp"
 	"github.com/samber/lo"
 
 	"github.com/dv-net/dv-processing/internal/models"
@@ -47,8 +46,8 @@ func (s *Service) GetHotWalletKeys(ctx context.Context, request *GetHotWalletKey
 		return nil, ErrTwoFactorDisabled
 	}
 
-	if ok := totp.Validate(request.OTP, owner.OtpSecret.String); !ok {
-		return nil, fmt.Errorf("failed to validate totp")
+	if ok := s.ValidateTwoFactorToken(ctx, owner.ID, request.OTP); ok != nil {
+		return nil, fmt.Errorf("validate otp: %w", ok)
 	}
 
 	response := make(GetHotWalletKeysResponse)
@@ -131,8 +130,8 @@ func (s *Service) GetAllPrivateKeys(ctx context.Context, request GetAllPrivateKe
 
 	// Validate as soon as we have it, since it's time based.
 	// Also check for remaining request's fields to reduce store calls.
-	if ok := totp.Validate(request.OTP, owner.OtpSecret.String); !ok {
-		return nil, fmt.Errorf("failed to validate totp")
+	if ok := s.ValidateTwoFactorToken(ctx, owner.ID, request.OTP); ok != nil {
+		return nil, fmt.Errorf("validate otp: %w", ok)
 	}
 
 	response := make(GetAllPrivateKeysResponse)

@@ -9,7 +9,6 @@ import (
 	"github.com/dv-net/dv-processing/pkg/encryption"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/pquerna/otp/totp"
 )
 
 type GetSeedsResponse struct {
@@ -37,13 +36,8 @@ func (s *Service) GetSeeds(ctx context.Context, ownerID uuid.UUID, otp string) (
 	}
 
 	// get 2FA secret from either new or legacy format
-	otpSecret, err := s.getOTPSecret(owner)
-	if err != nil {
-		return nil, fmt.Errorf("get otp secret: %w", err)
-	}
-
-	if ok := totp.Validate(otp, otpSecret); !ok {
-		return nil, fmt.Errorf("failed to validate totp")
+	if ok := s.ValidateTwoFactorToken(ctx, owner.ID, otp); ok != nil {
+		return nil, fmt.Errorf("validate otp: %w", ok)
 	}
 
 	// if owner.PassPhrase.String == "" {

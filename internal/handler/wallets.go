@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pquerna/otp/totp"
-
 	"connectrpc.com/connect"
 	commonv1 "github.com/dv-net/dv-processing/api/processing/common/v1"
 	walletv1 "github.com/dv-net/dv-processing/api/processing/wallet/v1"
@@ -307,8 +305,8 @@ func (s *walletsServer) AttachOwnerColdWallets(ctx context.Context, request *con
 		return nil, fmt.Errorf("two-factor authenticator is disabled")
 	}
 
-	if ok := totp.Validate(otp, owner.OtpSecret.String); !ok {
-		return nil, fmt.Errorf("failed to validate totp")
+	if ok := s.bs.Owners().ValidateTwoFactorToken(ctx, owner.ID, otp); ok != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("validate otp: %w", ok))
 	}
 
 	batchParams := make([]wallets.CreateColdWalletParams, 0, len(request.Msg.GetAddresses()))

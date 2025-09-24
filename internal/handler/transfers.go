@@ -110,10 +110,11 @@ func (s *transfersServer) Create(ctx context.Context, req *connect.Request[trans
 	if err != nil {
 		rpcError, ok := rpccode.IsRPCError(err)
 		if ok && (rpcError.Code >= rpccode.RPCCodeNotEnoughResources && rpcError.Code <= rpccode.RPCCodeAddressEmptyBalance) {
+			rpcCode, err := rpccode.NewConnectError(connect.CodeInternal, err)
 			s.logger.Debug(
 				"processing code status",
 				"grpc_code", connect.CodeOf(rpcError.Error).String(),
-				"rpc_code", rpcError.Code,
+				"rpc_code", rpcCode,
 			)
 			return nil, err
 		}

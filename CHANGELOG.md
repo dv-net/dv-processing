@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
+- fix code rpc wrapping [DV-3437]
 
 ### [0.9.5] - 2025-09-15
 - Add memory buffer for processing logs [DV-3361]

@@ -1,6 +1,6 @@
 -- name: Create :one
-INSERT INTO owners (external_id, client_id, mnemonic, pass_phrase, created_at)
-	VALUES ($1, $2, $3, $4, now())
+INSERT INTO owners (external_id, client_id, mnemonic, pass_phrase, created_at, otp_data)
+	VALUES ($1, $2, $3, $4, now(), $5)
 	RETURNING *;
 
 -- name: ExistsByExternalID :one

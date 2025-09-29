@@ -25,6 +25,7 @@ func utilsCMD() *cli.Command {
 		Commands: []*cli.Command{
 			genReadmeCMD(),
 			compressSeedsCMD(),
+			compressOTPDataCMD(),
 		},
 	}
 }
@@ -78,7 +79,7 @@ func genReadmeCMD() *cli.Command {
 	}
 }
 
-func compressSeedsCMD() *cli.Command {
+func compressSeedsCMD() *cli.Command { //nolint:dupl
 	return &cli.Command{
 		Name:  "seeds",
 		Usage: "encrypt and decrypt seeds for all owners",
@@ -132,6 +133,68 @@ func compressSeedsCMD() *cli.Command {
 			if cl.Bool("decrypt") {
 				if err := ownersService.DecryptSeedsForAllOwners(ctx); err != nil {
 					return fmt.Errorf("failed to decrypt seeds: %w", err)
+				}
+			}
+
+			return nil
+		},
+	}
+}
+
+func compressOTPDataCMD() *cli.Command { //nolint:dupl
+	return &cli.Command{
+		Name:  "otp-data",
+		Usage: "encrypt and decrypt OTP data for all owners",
+		Flags: []cli.Flag{
+			cfgPathsFlag(),
+			&cli.BoolFlag{
+				Name:  "encrypt",
+				Usage: "encrypt OTP data",
+			},
+			&cli.BoolFlag{
+				Name:  "decrypt",
+				Usage: "decrypt OTP data",
+			},
+		},
+		Action: func(ctx context.Context, cl *cli.Command) error {
+			if cl.Bool("encrypt") && cl.Bool("decrypt") {
+				return fmt.Errorf("only one of encrypt or decrypt can be set")
+			}
+
+			if !cl.Bool("encrypt") && !cl.Bool("decrypt") {
+				return fmt.Errorf("one of encrypt or decrypt must be set")
+			}
+
+			conf, err := config.Load[config.Config](cl.StringSlice("configs"), envPrefix)
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+
+			loggerOpts := append(defaultLoggerOpts(), logger.WithConfig(conf.Log))
+
+			l := logger.NewExtended(loggerOpts...)
+			defer func() { _ = l.Sync() }()
+
+			// init postgres connection
+			psql, err := postgres.New(ctx, conf.Postgres, l)
+			if err != nil {
+				return fmt.Errorf("failed to init postgres: %w", err)
+			}
+
+			// init store
+			st := store.New(psql)
+
+			ownersService := owners.New(conf, st, nil)
+
+			if cl.Bool("encrypt") {
+				if err := ownersService.EncryptOTPDataForAllOwners(ctx); err != nil {
+					return fmt.Errorf("failed to encrypt OTP data: %w", err)
+				}
+			}
+
+			if cl.Bool("decrypt") {
+				if err := ownersService.DecryptOTPDataForAllOwners(ctx); err != nil {
+					return fmt.Errorf("failed to decrypt OTP data: %w", err)
 				}
 			}
 

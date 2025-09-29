@@ -218,6 +218,9 @@ func (s *scanner) handleBlock(blockHeight int64, existsLastBlockDB bool) error {
 						return nil
 					}
 
+					if event.Status == nil || *event.Status != transactionsv2.EventStatus_EVENT_STATUS_SUCCESS {
+						return nil
+					}
 					// skip zero transfer if transaction initiator is another address. approve if we send commission
 					if event.GetValue() == "0" && event.GetAddressFrom() != "" && event.GetAddressFrom() != tx.GetAddressFrom() {
 						return nil

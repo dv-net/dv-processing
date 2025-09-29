@@ -8,12 +8,15 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
-- fix code rpc wrapping [DV-3437]
+
+### [0.9.6] - 2025-09-29
+- Added two-factor secret encryption [DV-2526]
+- Add support events status for internal transactions [DV-3436]
+- fix code rpc wrapping [DV-3461]
 
 ### [0.9.5] - 2025-09-15
 - Add memory buffer for processing logs [DV-3361]
 - Add dockerfile [DV-3387]
-- Added two-factor secret encryption [DV-2526]
 
 ### [0.9.4] - 2025-09-15
 

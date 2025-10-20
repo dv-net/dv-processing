@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
+- Added rollback support [DV-1943]
 
 ### [0.9.6] - 2025-09-29
 - Added two-factor secret encryption [DV-2526]

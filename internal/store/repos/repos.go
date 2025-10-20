@@ -4,6 +4,7 @@ import (
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_clients"
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_owners"
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_processed_blocks"
+	"github.com/dv-net/dv-processing/internal/store/repos/repo_processed_incidents"
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_settings"
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_system"
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_transfer_transactions"
@@ -14,6 +15,7 @@ import (
 
 type IRepos interface {
 	ProcessedBlocks(opts ...Option) repo_processed_blocks.Querier
+	ProcessedIncidents(opts ...Option) repo_processed_incidents.Querier
 	Clients(opts ...Option) repo_clients.Querier
 	Owners(opts ...Option) repo_owners.Querier
 	Transfers(opts ...Option) repo_transfers.ICustomQuerier
@@ -26,6 +28,7 @@ type IRepos interface {
 
 type repos struct {
 	processedBlocks      *repo_processed_blocks.Queries
+	processedIncidents   *repo_processed_incidents.Queries
 	clients              *repo_clients.Queries
 	owners               *repo_owners.Queries
 	transfers            *repo_transfers.CustomQuerier
@@ -39,6 +42,7 @@ type repos struct {
 func New(psql *postgres.Postgres) IRepos {
 	return &repos{
 		processedBlocks:      repo_processed_blocks.New(psql.DB),
+		processedIncidents:   repo_processed_incidents.New(psql.DB),
 		clients:              repo_clients.New(psql.DB),
 		owners:               repo_owners.New(psql.DB),
 		transfers:            repo_transfers.NewCustom(psql.DB),
@@ -59,6 +63,17 @@ func (s *repos) ProcessedBlocks(opts ...Option) repo_processed_blocks.Querier {
 	}
 
 	return s.processedBlocks
+}
+
+// ProcessedIncidents
+func (s *repos) ProcessedIncidents(opts ...Option) repo_processed_incidents.Querier {
+	options := parseOptions(opts...)
+
+	if options.Tx != nil {
+		return s.processedIncidents.WithTx(options.Tx)
+	}
+
+	return s.processedIncidents
 }
 
 // Clients

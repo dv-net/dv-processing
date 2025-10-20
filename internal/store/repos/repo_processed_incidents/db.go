@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.30.0
 
-package repo_processed_blocks
+package repo_processed_incidents
 
 import (
 	"context"

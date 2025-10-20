@@ -10,6 +10,7 @@ import (
 	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/pkg/retry"
+	"github.com/dv-net/dv-processing/pkg/utils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 	addressesv2 "github.com/dv-net/dv-proto/gen/go/eproxy/addresses/v2"
 	"github.com/dv-net/dv-proto/gen/go/eproxy/addresses/v2/addressesv2connect"
@@ -19,6 +20,8 @@ import (
 	"github.com/dv-net/dv-proto/gen/go/eproxy/blocks/v2/blocksv2connect"
 	"github.com/dv-net/dv-proto/gen/go/eproxy/btclike/v2/btclikev2connect"
 	commonv2 "github.com/dv-net/dv-proto/gen/go/eproxy/common/v2"
+	incidentsv2 "github.com/dv-net/dv-proto/gen/go/eproxy/incidents/v2"
+	"github.com/dv-net/dv-proto/gen/go/eproxy/incidents/v2/incidentsv2connect"
 	trxv2 "github.com/dv-net/dv-proto/gen/go/eproxy/transactions/v2"
 	"github.com/dv-net/dv-proto/gen/go/eproxy/transactions/v2/transactionsv2connect"
 	"github.com/dv-net/dv-proto/gen/go/eproxy/tron/v1/tronv1connect"
@@ -90,6 +93,10 @@ func (s *Service) AssetsClient() assetsv2connect.AssetsServiceClient {
 // TransactionsClient returns the transactions client
 func (s *Service) TransactionsClient() transactionsv2connect.TransactionsServiceClient {
 	return s.eproxyClient.TransactionsClient
+}
+
+func (s *Service) IncidentsClient() incidentsv2connect.IncidentsServiceClient {
+	return s.eproxyClient.IncidentsClient
 }
 
 // AddressBalances returns the balances of the address on the blockchain
@@ -231,6 +238,41 @@ func (s *Service) LastBlockNumber(ctx context.Context, blockchain wconstants.Blo
 	}
 
 	return response.Msg.GetHeight(), nil
+}
+
+// GetIncidents returns recent incidents for the blockchain
+func (s *Service) GetIncidents(ctx context.Context, blockchain wconstants.BlockchainType, limit uint32) ([]*incidentsv2.Incident, error) {
+	incidents, err := s.eproxyClient.IncidentsClient.Find(ctx, connect.NewRequest(&incidentsv2.FindRequest{
+		Blockchain: ConvertBlockchain(blockchain),
+		Common: &commonv2.FindRequestCommon{
+			Page:     utils.Pointer(uint32(1)),
+			PageSize: utils.Pointer(limit),
+		},
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("get incidents: %w", err)
+	}
+
+	return incidents.Msg.GetItems(), nil
+}
+
+// GetRollbackStartingBlock returns the block height to start parsing from after a rollback incident
+func (s *Service) GetRollbackStartingBlock(ctx context.Context, blockchain wconstants.BlockchainType) (uint64, error) {
+	incidents, err := s.GetIncidents(ctx, blockchain, 1)
+	if err != nil {
+		return 0, fmt.Errorf("get last incident for rollback recovery: %w", err)
+	}
+
+	if len(incidents) < 1 {
+		return 0, fmt.Errorf("no incidents found for blockchain %s", blockchain.String())
+	}
+
+	incident := incidents[0]
+	if incident.GetType() != incidentsv2.IncidentType_INCIDENT_TYPE_ROLLBACK {
+		return 0, fmt.Errorf("last incident is not a rollback incident for blockchain %s", blockchain.String())
+	}
+
+	return incident.GetDataRollback().GetRevertToBlockHeight(), nil
 }
 
 type FindTransactionsParams struct {

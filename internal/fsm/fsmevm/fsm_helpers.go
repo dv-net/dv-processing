@@ -2,6 +2,7 @@ package fsmevm
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_transfer_transactions"
 	trxv2 "github.com/dv-net/dv-proto/gen/go/eproxy/transactions/v2"
 
-	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/services/webhooks"
 	"github.com/dv-net/dv-processing/internal/store/repos"
@@ -202,8 +202,8 @@ func (s *FSM) getAssetDecimals(ctx context.Context, assetIdentifier string) (int
 
 type walletCreds struct {
 	Address    string
-	PrivateKey *btcec.PrivateKey
-	PublicKey  *btcec.PublicKey
+	PrivateKey *ecdsa.PrivateKey
+	PublicKey  *ecdsa.PublicKey
 }
 
 // getWalletCreds
@@ -288,7 +288,7 @@ func (s *FSM) sendBaseAsset(ctx context.Context, wCreds *walletCreds, toAddress 
 		Data:      nil,
 	})
 
-	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(chainID), wCreds.PrivateKey.ToECDSA())
+	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(chainID), wCreds.PrivateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("sign transaction: %w", err)
 	}
@@ -346,7 +346,7 @@ func (s *FSM) sendERC20(ctx context.Context, wCreds *walletCreds, contractAddres
 	}
 
 	// create auth
-	auth, err := bind.NewKeyedTransactorWithChainID(wCreds.PrivateKey.ToECDSA(), chainID)
+	auth, err := bind.NewKeyedTransactorWithChainID(wCreds.PrivateKey, chainID)
 	if err != nil {
 		return nil, nil, err
 	}

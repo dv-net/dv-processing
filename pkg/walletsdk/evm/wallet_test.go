@@ -5,10 +5,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	secp "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/evm"
 	"github.com/dv-net/go-bip39"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/fbsobreira/gotron-sdk/pkg/keys/hd"
 	"github.com/stretchr/testify/require"
@@ -16,8 +15,8 @@ import (
 
 const (
 	mnemonic        = "vague wool express sniff alley core hen symptom end rather month cave cross elder nest bright paddle use voice wife dolphin mosquito inside curve"
-	passphrase      = "asdfasdfasdf" //nolint:gosec
-	defaultSequence = 1
+	passphrase      = "" //nolint:gosec
+	defaultSequence = 0
 )
 
 func Test_GenerateAddresses(t *testing.T) {
@@ -27,18 +26,18 @@ func Test_GenerateAddresses(t *testing.T) {
 			t.Fatalf("failed to generate addresss: %v", err)
 		}
 
-		fmt.Println(addr, priv)
+		fmt.Println(addr, hexutil.Encode(crypto.FromECDSA(priv)))
 	}
 }
 
 func TestEthereumWalletPubKeyHash(t *testing.T) {
 	seed := bip39.NewSeed(mnemonic, passphrase)
 	require.NotEmpty(t, seed)
-	secret, chainCode := hd.ComputeMastersFromSeed(seed, []byte(passphrase))
+	secret, chainCode := hd.ComputeMastersFromSeed(seed, []byte("Bitcoin seed"))
 	require.NotEmpty(t, secret)
 	require.NotEmpty(t, chainCode)
 	secret, err := hd.DerivePrivateKeyForPath(
-		btcec.S256(),
+		crypto.S256(),
 		secret,
 		chainCode,
 		"44'/60'/0'/0/"+strconv.Itoa(defaultSequence),
@@ -46,14 +45,14 @@ func TestEthereumWalletPubKeyHash(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, secret)
 
-	privateKey, publicKey := secp.PrivKeyFromBytes(secret[:]), secp.PrivKeyFromBytes(secret[:]).PubKey()
+	privateKey, err := crypto.ToECDSA(secret[:])
+	require.NoError(t, err)
 	require.NotEmpty(t, privateKey)
-	require.NotEmpty(t, publicKey)
 
-	address := crypto.PubkeyToAddress(*publicKey.ToECDSA())
+	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 	require.NotEmpty(t, address)
-	t.Log(address.String())
 
-	t.Log(publicKey.ToECDSA())
-	t.Log(privateKey.Key.String())
+	t.Log(address.String())
+	t.Log(hexutil.Encode(crypto.FromECDSA(privateKey)))
+	t.Log(hexutil.Encode(crypto.FromECDSAPub(&privateKey.PublicKey)))
 }

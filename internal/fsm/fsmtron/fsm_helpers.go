@@ -2,12 +2,12 @@ package fsmtron
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"strings"
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/btcsuite/btcd/btcec/v2"
 	trxv2 "github.com/dv-net/dv-proto/gen/go/eproxy/transactions/v2"
 	"github.com/fbsobreira/gotron-sdk/pkg/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/api"
@@ -155,8 +155,8 @@ func (s *FSM) getAssetDecimals(ctx context.Context, assetIdentifier string) (int
 
 type walletCreds struct {
 	Address    string
-	PrivateKey *btcec.PrivateKey
-	PublicKey  *btcec.PublicKey
+	PrivateKey *ecdsa.PrivateKey
+	PublicKey  *ecdsa.PublicKey
 }
 
 // getWalletCreds
@@ -201,7 +201,7 @@ func (s *FSM) systemActivation(ctx context.Context, wCreds *walletCreds, toAddre
 		return nil, fmt.Errorf("create system activation tx error: %s", string(tx.Result.Message))
 	}
 
-	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey.ToECDSA()); err != nil {
+	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey); err != nil {
 		return nil, fmt.Errorf("sign transaction: %w", err)
 	}
 
@@ -252,7 +252,7 @@ func (s *FSM) sendTRX(ctx context.Context, wCreds *walletCreds, toAddress string
 		return nil, fmt.Errorf("create send trx tx error: %s", string(tx.Result.Message))
 	}
 
-	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey.ToECDSA()); err != nil {
+	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey); err != nil {
 		return nil, fmt.Errorf("sign transaction: %w", err)
 	}
 
@@ -319,7 +319,7 @@ func (s *FSM) sendTrc20(ctx context.Context, wCreds *walletCreds, contractAddres
 		return nil, fmt.Errorf("create send trc20 tx error: %s", string(tx.Result.Message))
 	}
 
-	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey.ToECDSA()); err != nil {
+	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey); err != nil {
 		return nil, fmt.Errorf("sign transaction: %w", err)
 	}
 
@@ -407,7 +407,7 @@ func (s *FSM) delegateResource(
 		return nil, nil, fmt.Errorf("create delegate tx error: %s", string(tx.Result.Message))
 	}
 
-	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey.ToECDSA()); err != nil {
+	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey); err != nil {
 		return nil, nil, fmt.Errorf("sign transaction: %w", err)
 	}
 
@@ -464,7 +464,7 @@ func (s *FSM) reclaimResource(ctx context.Context, wCreds *walletCreds, toAddres
 		return nil, nil, fmt.Errorf("create reclaim tx error: %s", string(tx.Result.Message))
 	}
 
-	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey.ToECDSA()); err != nil {
+	if err := s.tron.SignTransaction(tx.GetTransaction(), wCreds.PrivateKey); err != nil {
 		return nil, nil, fmt.Errorf("sign transaction: %w", err)
 	}
 

@@ -11,7 +11,9 @@ builds:
       - linux
     goarch:
       - amd64
-
+    env:
+      - CGO_ENABLED=0
+      - CC=gcc
     ldflags:
       - -s -w -X main.version={{.Tag}} -X main.commitHash={{.ShortCommit}}
 

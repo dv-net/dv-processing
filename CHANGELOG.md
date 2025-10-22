@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 
 ### Unreleased
 
+- Force CGO_ENABLED=0 on build
+
 ### [0.9.6] - 2025-09-29
 - Added two-factor secret encryption [DV-2526]
 - Add support events status for internal transactions [DV-3436]

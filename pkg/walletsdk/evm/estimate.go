@@ -32,7 +32,7 @@ func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, asse
 		return nil, fmt.Errorf("failed to estimate fee: %w", err)
 	}
 
-	if assetIdentifier == s.config.Blockchain.GetAssetIdentifier() { //nolint:nestif
+	if assetIdentifier == s.config.Blockchain.GetAssetIdentifier() {
 		estimatedGas, err := s.node.EstimateGas(ctx, ethereum.CallMsg{
 			From:  common.HexToAddress(fromAddress),
 			To:    utils.Pointer(common.HexToAddress(toAddress)),
@@ -44,11 +44,6 @@ func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, asse
 
 		gasAmount = decimal.NewFromUint64(estimatedGas)
 		gasTipCap = estimate.SuggestGasTipCap
-
-		if gasTipCap.GreaterThan(estimate.MaxFeePerGas) {
-			gasTipCap = estimate.MaxFeePerGas
-		}
-
 		totalGasPrice = estimate.MaxFeePerGas.Add(gasTipCap)
 		totalFeeAmount = totalGasPrice.Mul(gasAmount)
 	} else {
@@ -70,11 +65,6 @@ func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, asse
 
 		gasAmount = decimal.NewFromUint64(estimatedGas)
 		gasTipCap = estimate.SuggestGasTipCap
-
-		if gasTipCap.GreaterThan(estimate.MaxFeePerGas) {
-			gasTipCap = estimate.MaxFeePerGas
-		}
-
 		totalGasPrice = estimate.MaxFeePerGas.Add(gasTipCap)
 		totalFeeAmount = totalGasPrice.Mul(gasAmount)
 	}
@@ -137,17 +127,34 @@ func (s *EVM) EstimateFee(ctx context.Context) (*EstimateFeeResult, error) {
 		SuggestGasPrice:  suggestGasPrice,
 	}
 
-	if s.config.Blockchain == wconstants.BlockchainTypeEthereum {
-		fee.SuggestGasTipCap = UnitMap[EtherUnitGWei]
-	}
-
-	if fee.SuggestGasTipCap.LessThan(UnitMap[EtherUnitGWei]) {
-		fee.SuggestGasTipCap = UnitMap[EtherUnitGWei]
+	// Apply blockchain-specific minimum gas tip caps
+	minGasTipCap := getMinGasTipCapByBlockchain(s.config.Blockchain)
+	if fee.SuggestGasTipCap.LessThan(minGasTipCap) {
+		fee.SuggestGasTipCap = minGasTipCap
 	}
 
 	fee.MaxFeePerGas = GetBaseFeeMultiplier(fee.SuggestGasPrice)
 
 	return fee, nil
+}
+
+// getMinGasTipCapByBlockchain returns the minimum gas tip cap for a given blockchain in Wei.
+func getMinGasTipCapByBlockchain(blockchain wconstants.BlockchainType) decimal.Decimal {
+	switch blockchain {
+	case wconstants.BlockchainTypeBinanceSmartChain:
+		return UnitMap[EtherUnitGWei].Div(decimal.NewFromInt(10))
+	case wconstants.BlockchainTypeEthereum:
+		return UnitMap[EtherUnitGWei]
+	case wconstants.BlockchainTypePolygon:
+		return decimal.NewFromInt(30).Mul(UnitMap[EtherUnitGWei])
+	case wconstants.BlockchainTypeArbitrum,
+		wconstants.BlockchainTypeOptimism,
+		wconstants.BlockchainTypeLinea:
+		return UnitMap[EtherUnitGWei].Div(decimal.NewFromInt(100))
+	default:
+		// Default: 1 Gwei
+		return UnitMap[EtherUnitGWei]
+	}
 }
 
 func GetBaseFeeMultiplier(baseFeeWei decimal.Decimal) decimal.Decimal {

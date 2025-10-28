@@ -44,7 +44,7 @@ func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, asse
 
 		gasAmount = decimal.NewFromUint64(estimatedGas)
 		gasTipCap = estimate.SuggestGasTipCap
-		totalGasPrice = estimate.MaxFeePerGas.Add(gasTipCap)
+		totalGasPrice = estimate.MaxFeePerGas
 		totalFeeAmount = totalGasPrice.Mul(gasAmount)
 	} else {
 		amount = amount.Mul(decimal.NewFromInt(1).Mul(decimal.NewFromInt(10).Pow(decimal.NewFromInt(decimals))))
@@ -65,7 +65,7 @@ func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, asse
 
 		gasAmount = decimal.NewFromUint64(estimatedGas)
 		gasTipCap = estimate.SuggestGasTipCap
-		totalGasPrice = estimate.MaxFeePerGas.Add(gasTipCap)
+		totalGasPrice = estimate.MaxFeePerGas
 		totalFeeAmount = totalGasPrice.Mul(gasAmount)
 	}
 
@@ -134,6 +134,10 @@ func (s *EVM) EstimateFee(ctx context.Context) (*EstimateFeeResult, error) {
 	}
 
 	fee.MaxFeePerGas = GetBaseFeeMultiplier(fee.SuggestGasPrice)
+
+	if fee.MaxFeePerGas.LessThan(fee.SuggestGasPrice.Add(fee.SuggestGasTipCap)) {
+		fee.MaxFeePerGas = fee.SuggestGasPrice.Add(fee.SuggestGasTipCap)
+	}
 
 	return fee, nil
 }

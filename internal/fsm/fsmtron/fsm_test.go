@@ -86,7 +86,7 @@ func TestFSM(t *testing.T) {
 	bc, err := blockchains.New(context.Background(), conf.Blockchain, sdk)
 	require.NoError(t, err)
 
-	sysSvc := system.New(st, "sysVersion", "sysCommit")
+	sysSvc := system.New(l, st, "sysVersion", "sysCommit")
 	bs, err := baseservices.New(appCtx, l, conf, st, explorerProxySvc, bc, sysSvc, dispatcher.New(), nil, sdk)
 	require.NoError(t, err)
 

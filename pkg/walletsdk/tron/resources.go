@@ -278,7 +278,7 @@ func (t *Tron) AvailableForDelegateResources(ctx context.Context, addr string) (
 	resources := &Resources{
 		Energy:         t.AvailableEnergy(accountResources),
 		TotalEnergy:    t.TotalEnergyLimit(accountResources),
-		Bandwidth:      t.AvailableBandwidth(accountResources),
+		Bandwidth:      t.AvailableBandwidthWithoutFree(accountResources),
 		TotalBandwidth: t.TotalBandwidthLimit(accountResources),
 	}
 	if stackedEnergy.LessThan(resources.Energy) {

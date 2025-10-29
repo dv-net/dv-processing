@@ -42,7 +42,15 @@ func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, asse
 			return nil, fmt.Errorf("failed to estimate gas for eth: %w", err)
 		}
 
-		gasAmount = decimal.NewFromUint64(estimatedGas)
+		// Use the actual gas limit that will be used in transaction
+		gasLimit := GasLimitByBlockchain(s.config.Blockchain)
+
+		if estimatedGas > gasLimit {
+			gasAmount = decimal.NewFromUint64(estimatedGas)
+		} else {
+			gasAmount = decimal.NewFromUint64(gasLimit)
+		}
+
 		gasTipCap = estimate.SuggestGasTipCap
 		totalGasPrice = estimate.MaxFeePerGas
 		totalFeeAmount = totalGasPrice.Mul(gasAmount)
@@ -158,6 +166,16 @@ func getMinGasTipCapByBlockchain(blockchain wconstants.BlockchainType) decimal.D
 	default:
 		// Default: 1 Gwei
 		return UnitMap[EtherUnitGWei]
+	}
+}
+
+// GasLimitByBlockchain returns the gas limit by blockchain for base asset transfers.
+func GasLimitByBlockchain(blockchain wconstants.BlockchainType) uint64 {
+	switch blockchain {
+	case wconstants.BlockchainTypeArbitrum:
+		return 38000
+	default:
+		return 21000 // Default gas limit for unknown blockchains
 	}
 }
 

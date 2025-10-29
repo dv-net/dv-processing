@@ -20,7 +20,6 @@ import (
 	"github.com/dv-net/dv-processing/pkg/utils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/evm"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/evm/erc20"
-	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -260,7 +259,7 @@ func (s *FSM) sendBaseAsset(ctx context.Context, wCreds *walletCreds, toAddress 
 		return nil, nil, err
 	}
 
-	gasLimit := gasLimitByBlockchain(s.evm.Blockchain())
+	gasLimit := evm.GasLimitByBlockchain(s.evm.Blockchain())
 
 	s.logger.Infow(
 		s.stringForBaseAsset("sending %s"),
@@ -475,15 +474,5 @@ func (s *FSM) prepareTransferTransactionTypeByStep() (*models.TransferTransactio
 		return utils.Pointer(models.TransferTransactionTypeTransfer), nil
 	default:
 		return nil, fmt.Errorf("unknown transfer step: %s", s.wf.CurrentStep().Name)
-	}
-}
-
-// gasLimitByBlockchain returns the gas limit by blockchain.
-func gasLimitByBlockchain(blockchain wconstants.BlockchainType) uint64 {
-	switch blockchain {
-	case wconstants.BlockchainTypeArbitrum:
-		return 38000
-	default:
-		return 21000 // Default gas limit for unknown blockchains
 	}
 }

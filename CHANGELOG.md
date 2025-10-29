@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
+
+### [0.9.8] - 2025-10-15
+- fix bandwidth estimate for tron transfer
+- fix evm estimate for transfer
+
+### [0.9.7] - 2025-10-15
 - Added support for disabled CGO_ENABLED flag in EVM, TRON cryptography [DV-3641]
 
 ### [0.9.6] - 2025-09-29

@@ -22,52 +22,24 @@ type EstimateTransferResult struct {
 
 // EstimateTransfer estimates the transfer fee. Amount is in Eth
 func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, assetIdentifier string, amount decimal.Decimal, decimals int64) (*EstimateTransferResult, error) {
-	var gasAmount decimal.Decimal
-	var gasTipCap decimal.Decimal
-	var totalFeeAmount decimal.Decimal
-	var totalGasPrice decimal.Decimal
-
 	estimate, err := s.EstimateFee(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate fee: %w", err)
 	}
 
+	var gasAmount decimal.Decimal
 	if assetIdentifier == s.config.Blockchain.GetAssetIdentifier() {
-		estimatedGas, err := s.node.EstimateGas(ctx, ethereum.CallMsg{
-			From:  common.HexToAddress(fromAddress),
-			To:    utils.Pointer(common.HexToAddress(toAddress)),
-			Value: NewUnit(amount, EtherUnitEther).Value(EtherUnitWei).BigInt(),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to estimate gas for eth: %w", err)
-		}
-
-		gasAmount = decimal.NewFromUint64(estimatedGas)
-		gasTipCap = estimate.SuggestGasTipCap
-		totalGasPrice = estimate.MaxFeePerGas
-		totalFeeAmount = totalGasPrice.Mul(gasAmount)
+		gasAmount, err = s.estimateNativeAssetGas(ctx, fromAddress, toAddress, amount)
 	} else {
-		amount = amount.Mul(decimal.NewFromInt(1).Mul(decimal.NewFromInt(10).Pow(decimal.NewFromInt(decimals))))
-
-		data, err := s.abi.Pack("transfer", common.HexToAddress(toAddress), amount.BigInt())
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack transfer data: %w", err)
-		}
-
-		estimatedGas, err := s.node.EstimateGas(ctx, ethereum.CallMsg{
-			From: common.HexToAddress(fromAddress),
-			To:   utils.Pointer(common.HexToAddress(assetIdentifier)),
-			Data: data,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to estimate gas for contract: %w", err)
-		}
-
-		gasAmount = decimal.NewFromUint64(estimatedGas)
-		gasTipCap = estimate.SuggestGasTipCap
-		totalGasPrice = estimate.MaxFeePerGas
-		totalFeeAmount = totalGasPrice.Mul(gasAmount)
+		gasAmount, err = s.estimateTokenGas(ctx, fromAddress, toAddress, assetIdentifier, amount, decimals)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	gasTipCap := estimate.SuggestGasTipCap
+	totalGasPrice := estimate.MaxFeePerGas
+	totalFeeAmount := totalGasPrice.Mul(gasAmount)
 
 	return &EstimateTransferResult{
 		TotalFeeAmount:    totalFeeAmount,
@@ -76,6 +48,48 @@ func (s *EVM) EstimateTransfer(ctx context.Context, fromAddress, toAddress, asse
 		EstimateGasAmount: gasAmount,
 		Estimate:          *estimate,
 	}, nil
+}
+
+// estimateNativeAssetGas estimates gas for native blockchain asset transfers
+func (s *EVM) estimateNativeAssetGas(ctx context.Context, fromAddress, toAddress string, amount decimal.Decimal) (decimal.Decimal, error) {
+	estimatedGas, err := s.node.EstimateGas(ctx, ethereum.CallMsg{
+		From:  common.HexToAddress(fromAddress),
+		To:    utils.Pointer(common.HexToAddress(toAddress)),
+		Value: NewUnit(amount, EtherUnitEther).Value(EtherUnitWei).BigInt(),
+	})
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("failed to estimate gas for eth: %w", err)
+	}
+
+	// Use the actual gas limit that will be used in transaction
+	gasLimit := GasLimitByBlockchain(s.config.Blockchain)
+
+	if estimatedGas > gasLimit {
+		return decimal.NewFromUint64(estimatedGas), nil
+	}
+	return decimal.NewFromUint64(gasLimit), nil
+}
+
+// estimateTokenGas estimates gas for token (ERC-20) transfers
+func (s *EVM) estimateTokenGas(ctx context.Context, fromAddress, toAddress, assetIdentifier string, amount decimal.Decimal, decimals int64) (decimal.Decimal, error) {
+	// Convert amount to token's smallest unit
+	amount = amount.Mul(decimal.NewFromInt(1).Mul(decimal.NewFromInt(10).Pow(decimal.NewFromInt(decimals))))
+
+	data, err := s.abi.Pack("transfer", common.HexToAddress(toAddress), amount.BigInt())
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("failed to pack transfer data: %w", err)
+	}
+
+	estimatedGas, err := s.node.EstimateGas(ctx, ethereum.CallMsg{
+		From: common.HexToAddress(fromAddress),
+		To:   utils.Pointer(common.HexToAddress(assetIdentifier)),
+		Data: data,
+	})
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("failed to estimate gas for contract: %w", err)
+	}
+
+	return decimal.NewFromUint64(estimatedGas), nil
 }
 
 // EstimateFeeResult represents the result of the fee estimation
@@ -158,6 +172,16 @@ func getMinGasTipCapByBlockchain(blockchain wconstants.BlockchainType) decimal.D
 	default:
 		// Default: 1 Gwei
 		return UnitMap[EtherUnitGWei]
+	}
+}
+
+// GasLimitByBlockchain returns the gas limit by blockchain for base asset transfers.
+func GasLimitByBlockchain(blockchain wconstants.BlockchainType) uint64 {
+	switch blockchain {
+	case wconstants.BlockchainTypeArbitrum:
+		return 38000
+	default:
+		return 21000 // Default gas limit for unknown blockchains
 	}
 }
 

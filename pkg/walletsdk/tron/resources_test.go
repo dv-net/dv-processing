@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
@@ -295,10 +294,10 @@ func TestEstimateEnergyForTransfer(t *testing.T) {
 	_, err = h256h.Write(rawData)
 	require.NoError(t, err)
 
-	pk, err := secp256k1.GeneratePrivateKey()
+	pk, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	signature, err := crypto.Sign(h256h.Sum(nil), pk.ToECDSA())
+	signature, err := crypto.Sign(h256h.Sum(nil), pk)
 	require.NoError(t, err)
 
 	tx.Signature = append(tx.Signature, signature)

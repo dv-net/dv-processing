@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
+- Added support for disabled CGO_ENABLED flag in EVM, TRON cryptography [DV-3641]
 
 ### [0.9.6] - 2025-09-29
 - Added two-factor secret encryption [DV-2526]

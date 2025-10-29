@@ -209,7 +209,7 @@ func (s *FSM) activateWalletResources(ctx context.Context, _ *workflow.Workflow,
 	}
 
 	// sign transaction
-	if err = s.tron.SignTransaction(tx.Transaction, wcreds.PrivateKey.ToECDSA()); err != nil {
+	if err = s.tron.SignTransaction(tx.Transaction, wcreds.PrivateKey); err != nil {
 		return fmt.Errorf("sign activation transaction: %w", err)
 	}
 

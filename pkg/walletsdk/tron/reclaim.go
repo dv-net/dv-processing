@@ -79,7 +79,7 @@ func (t *Tron) ReclaimResource(ctx context.Context, params ReclaimResourceParams
 			return nil, fmt.Errorf("create reclaim tx error: %s", string(tx.Result.Message))
 		}
 
-		if err := t.SignTransaction(tx.GetTransaction(), priv.ToECDSA()); err != nil {
+		if err := t.SignTransaction(tx.GetTransaction(), priv); err != nil {
 			return nil, fmt.Errorf("sign transaction: %w", err)
 		}
 

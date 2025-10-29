@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/dv-net/dv-processing/pkg/retry"
 	"github.com/dv-net/dv-processing/rpccode"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -883,12 +882,12 @@ func (t *Tron) fillFakeTX(tx *core.Transaction) error {
 		return err
 	}
 
-	pk, err := secp256k1.GeneratePrivateKey()
+	pk, err := crypto.GenerateKey()
 	if err != nil {
 		return err
 	}
 
-	signature, err := crypto.Sign(h256h.Sum(nil), pk.ToECDSA())
+	signature, err := crypto.Sign(h256h.Sum(nil), pk)
 	if err != nil {
 		return err
 	}

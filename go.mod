@@ -9,7 +9,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.5-0.20250213152832-bb52d7d78d9c
 	github.com/btcsuite/btcd/btcutil v1.1.7-0.20250213152832-bb52d7d78d9c
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.1-0.20250213152832-bb52d7d78d9c
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/ethereum/go-ethereum v1.15.8
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250427130616-96b87f5d2100
 	github.com/go-playground/validator/v10 v10.26.0

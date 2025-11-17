@@ -9,12 +9,32 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 
 ### Unreleased
 
+### [0.9.8] - 2025-11-17
+
+- fix: disable CGO support in goreleaser configuration
+- fix: bug in banwidth delegation accounting
+- fix: fixed evm incorrectly assigning gas fee tip
+- fix: adjust total gas price calculation to remove gas tip cap addition
+- fix: correct total gas price calculation to exclude gas tip cap
+- fix: remove gas tip cap from total gas price calculation
+- fix: fixed bug with secp256k1 curve in cgo disabled env
+- fix: update gas estimation logic and add gas limit function for block
+- fix: bandwidth estimate for tron transfer
+- fix: evm estimate for transfer
+- init e2e tests
+
+### [0.9.7] - 2025-10-15
+
+- Added support for disabled CGO_ENABLED flag in EVM, TRON cryptography [DV-3641]
+
 ### [0.9.6] - 2025-09-29
+
 - Added two-factor secret encryption [DV-2526]
 - Add support events status for internal transactions [DV-3436]
 - fix code rpc wrapping [DV-3461]
 
 ### [0.9.5] - 2025-09-15
+
 - Add memory buffer for processing logs [DV-3361]
 - Add dockerfile [DV-3387]
 

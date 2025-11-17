@@ -2,6 +2,7 @@ package fsmevm
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_transfer_transactions"
 	trxv2 "github.com/dv-net/dv-proto/gen/go/eproxy/transactions/v2"
 
-	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/services/webhooks"
 	"github.com/dv-net/dv-processing/internal/store/repos"
@@ -20,7 +20,6 @@ import (
 	"github.com/dv-net/dv-processing/pkg/utils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/evm"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/evm/erc20"
-	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -202,8 +201,8 @@ func (s *FSM) getAssetDecimals(ctx context.Context, assetIdentifier string) (int
 
 type walletCreds struct {
 	Address    string
-	PrivateKey *btcec.PrivateKey
-	PublicKey  *btcec.PublicKey
+	PrivateKey *ecdsa.PrivateKey
+	PublicKey  *ecdsa.PublicKey
 }
 
 // getWalletCreds
@@ -260,7 +259,7 @@ func (s *FSM) sendBaseAsset(ctx context.Context, wCreds *walletCreds, toAddress 
 		return nil, nil, err
 	}
 
-	gasLimit := gasLimitByBlockchain(s.evm.Blockchain())
+	gasLimit := evm.GasLimitByBlockchain(s.evm.Blockchain())
 
 	s.logger.Infow(
 		s.stringForBaseAsset("sending %s"),
@@ -288,7 +287,7 @@ func (s *FSM) sendBaseAsset(ctx context.Context, wCreds *walletCreds, toAddress 
 		Data:      nil,
 	})
 
-	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(chainID), wCreds.PrivateKey.ToECDSA())
+	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(chainID), wCreds.PrivateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("sign transaction: %w", err)
 	}
@@ -346,7 +345,7 @@ func (s *FSM) sendERC20(ctx context.Context, wCreds *walletCreds, contractAddres
 	}
 
 	// create auth
-	auth, err := bind.NewKeyedTransactorWithChainID(wCreds.PrivateKey.ToECDSA(), chainID)
+	auth, err := bind.NewKeyedTransactorWithChainID(wCreds.PrivateKey, chainID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -475,15 +474,5 @@ func (s *FSM) prepareTransferTransactionTypeByStep() (*models.TransferTransactio
 		return utils.Pointer(models.TransferTransactionTypeTransfer), nil
 	default:
 		return nil, fmt.Errorf("unknown transfer step: %s", s.wf.CurrentStep().Name)
-	}
-}
-
-// gasLimitByBlockchain returns the gas limit by blockchain.
-func gasLimitByBlockchain(blockchain wconstants.BlockchainType) uint64 {
-	switch blockchain {
-	case wconstants.BlockchainTypeArbitrum:
-		return 38000
-	default:
-		return 21000 // Default gas limit for unknown blockchains
 	}
 }

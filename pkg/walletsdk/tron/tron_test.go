@@ -6,12 +6,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-	secp "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/dv-net/dv-processing/pkg/testutils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/tron"
 	"github.com/dv-net/go-bip39"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	addr "github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/fbsobreira/gotron-sdk/pkg/keys/hd"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/api"
@@ -21,7 +20,7 @@ import (
 const (
 	mnemonic        = "vague wool express sniff alley core hen symptom end rather month cave cross elder nest bright paddle use voice wife dolphin mosquito inside curve"
 	passphrase      = "" //nolint:gosec
-	defaultSequence = 1
+	defaultSequence = 0
 )
 
 func Test_GenerateAddresses(t *testing.T) {
@@ -41,11 +40,11 @@ func TestTronWalletPubKeyHash(t *testing.T) {
 	t.Run("", func(t *testing.T) {
 		seed := bip39.NewSeed(mnemonic, passphrase)
 		require.NotEmpty(t, seed)
-		secret, chainCode := hd.ComputeMastersFromSeed(seed, []byte(passphrase))
+		secret, chainCode := hd.ComputeMastersFromSeed(seed, []byte("Bitcoin seed"))
 		require.NotEmpty(t, secret)
 		require.NotEmpty(t, chainCode)
 		secret, err := hd.DerivePrivateKeyForPath(
-			btcec.S256(),
+			crypto.S256(),
 			secret,
 			chainCode,
 			"44'/195'/0'/0/"+strconv.Itoa(defaultSequence),
@@ -53,16 +52,27 @@ func TestTronWalletPubKeyHash(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, secret)
 
-		privateKey, publicKey := secp.PrivKeyFromBytes(secret[:]), secp.PrivKeyFromBytes(secret[:]).PubKey()
+		privateKey, err := crypto.ToECDSA(secret[:])
 		require.NotEmpty(t, privateKey)
-		require.NotEmpty(t, publicKey)
+		require.NoError(t, err)
 
-		address := addr.PubkeyToAddress(*publicKey.ToECDSA()).String()
+		publicKey := privateKey.PublicKey
+
+		address := addr.PubkeyToAddress(publicKey).String()
 		require.NotEmpty(t, address)
-		t.Log(address)
 
-		t.Log(hexutil.Encode(publicKey.SerializeCompressed()))
-		t.Log(hexutil.Encode(privateKey.Serialize()))
+		{
+			walletAddress := address
+			require.Equal(t, walletAddress, "TNhpnt7RTBbqHJ6KXARXNXzP3DmCLeda9t")
+			walletPublicKey := hexutil.Encode(crypto.CompressPubkey(&publicKey))
+			require.Equal(t, walletPublicKey, "0x022f7180d4139d93e139bb54eaea8950a6d63e73c1ccbdc5a67648ca46c24d7890")
+			walletPrivateKey := hexutil.Encode(crypto.FromECDSA(privateKey))
+			require.Equal(t, walletPrivateKey, "0xed809dfbae236bef30e235f4c871736205b58cf387167ded93ebcbc20865b0ef")
+
+		}
+		t.Log(address)
+		t.Log(hexutil.Encode(crypto.CompressPubkey(&publicKey)))
+		t.Log(hexutil.Encode(crypto.FromECDSA(privateKey)))
 	})
 }
 
@@ -70,7 +80,7 @@ func TestTronWalletPubKeyHash(t *testing.T) {
 func TestAddressSecret(t *testing.T) {
 	_, private, _, err := tron.WalletPubKeyHash(mnemonic, passphrase, defaultSequence)
 	require.NoError(t, err)
-	t.Log(private)
+	t.Log(hexutil.Encode(crypto.FromECDSA(private)))
 }
 
 func TestGetAllChainParams(t *testing.T) {
@@ -100,7 +110,7 @@ func TestIsAccountActivated(t *testing.T) {
 	}{
 		{
 			// currently this address is not activated
-			address:     "TRDGZSLHBdp4a2RCfY7basfKzGdxJug184",
+			address:     "TD76i6fcmbZrfWqRVgmM6aEKZCVevy4Fmv",
 			isActivated: false,
 		},
 		{

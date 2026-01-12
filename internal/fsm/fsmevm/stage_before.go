@@ -105,6 +105,17 @@ func (s *FSM) sendBaseAssetForBurn(ctx context.Context, wf *workflow.Workflow, _
 		return nil
 	}
 
+	// check if transaction was already sent to avoid "nonce too low" error on retry
+	existingTxs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, models.TransferTransactionTypeSendBurnBaseAsset)
+	if err != nil {
+		return fmt.Errorf("find existing transaction: %w", err)
+	}
+	if len(existingTxs) > 0 {
+		s.logger.Infow("transaction already exists, skipping send", "tx_hash", existingTxs[0].TxHash)
+		// transaction already sent, proceed to next step
+		return nil
+	}
+
 	// get processing wallet by owner id
 	processingWallet, err := s.bs.Wallets().Processing().GetByBlockchain(ctx, s.transfer.OwnerID, s.evm.Blockchain())
 	if err != nil {

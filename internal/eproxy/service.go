@@ -242,7 +242,7 @@ type FindTransactionsParams struct {
 func (s *Service) FindTransactions(ctx context.Context, blockchain wconstants.BlockchainType, request FindTransactionsParams) ([]*trxv2.Transaction, error) {
 	var (
 		page     = uint32(1)
-		pageSize = uint32(500)
+		pageSize = uint32(1000)
 	)
 
 	data := make([]*trxv2.Transaction, 0)
@@ -253,22 +253,27 @@ func (s *Service) FindTransactions(ctx context.Context, blockchain wconstants.Bl
 		Blockchain:  ConvertBlockchain(blockchain),
 	}
 
-	for ctx.Err() == nil {
-		req.Common = &commonv2.FindRequestCommon{Page: &page, PageSize: &pageSize}
-
-		ctx, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
-		defer cancel()
-
-		response, err := s.eproxyClient.TransactionsClient.Find(ctx, connect.NewRequest(req))
-		if err != nil {
-			return nil, err
+	for {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
 		}
 
-		if len(response.Msg.GetItems()) == 0 {
+		req.Common = &commonv2.FindRequestCommon{Page: &page, PageSize: &pageSize}
+
+		reqCtx, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
+		response, err := s.eproxyClient.TransactionsClient.Find(reqCtx, connect.NewRequest(req))
+		cancel()
+
+		if err != nil {
+			return nil, fmt.Errorf("error fetching page %d: %w", page, err)
+		}
+
+		items := response.Msg.GetItems()
+		if len(items) == 0 {
 			break
 		}
 
-		data = append(data, response.Msg.GetItems()...)
+		data = append(data, items...)
 
 		if !response.Msg.NextPageExists {
 			break

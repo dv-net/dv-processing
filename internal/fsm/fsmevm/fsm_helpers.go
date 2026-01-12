@@ -186,13 +186,59 @@ func (s *FSM) checkTransactionConfirmations(ctx context.Context, txHash string, 
 }
 
 // getBalance returns the balance of the address.
+// First tries to get from explorer-proxy, falls back to node if explorer fails.
 func (s *FSM) getBalance(ctx context.Context, address string, assetIdentifier string) (decimal.Decimal, error) {
+	// Try explorer-proxy first
 	balance, err := s.bs.EProxy().AddressBalance(ctx, address, assetIdentifier, s.evm.Blockchain())
 	if err != nil {
-		return decimal.Zero, err
+		// If explorer-proxy fails (502, timeout, etc), fallback to node
+		s.logger.Warnw("explorer-proxy balance check failed, falling back to node", "error", err, "address", address)
+		return s.getBalanceFromNode(ctx, address, assetIdentifier)
 	}
 
 	return balance, nil
+}
+
+// getBalanceFromNode gets balance directly from Ethereum node
+func (s *FSM) getBalanceFromNode(ctx context.Context, address string, assetIdentifier string) (decimal.Decimal, error) {
+	addr := common.HexToAddress(address)
+
+	// Check if it's native token (ETH) or ERC20
+	if assetIdentifier == s.evm.Blockchain().GetAssetIdentifier() {
+		// Get ETH balance
+		balance, err := s.evm.Node().BalanceAt(ctx, addr, nil)
+		if err != nil {
+			return decimal.Zero, fmt.Errorf("get eth balance from node: %w", err)
+		}
+
+		// Convert wei to ether
+		balanceDecimal := decimal.NewFromBigInt(balance, 0)
+		etherBalance := balanceDecimal.Div(decimal.NewFromInt(1e18))
+		return etherBalance, nil
+	}
+
+	// For ERC20 tokens, use contract call
+	contractAddr := common.HexToAddress(assetIdentifier)
+	caller, err := erc20.NewERC20Caller(contractAddr, s.evm.Node())
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("create erc20 caller: %w", err)
+	}
+
+	balance, err := caller.BalanceOf(nil, addr)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("get erc20 balance from node: %w", err)
+	}
+
+	// Get decimals
+	decimals, err := s.getAssetDecimals(ctx, assetIdentifier)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("get asset decimals: %w", err)
+	}
+
+	// Convert to decimal with proper decimals
+	balanceDecimal := decimal.NewFromBigInt(balance, 0)
+	divisor := decimal.NewFromInt(10).Pow(decimal.NewFromInt(decimals))
+	return balanceDecimal.Div(divisor), nil
 }
 
 func (s *FSM) getAssetDecimals(ctx context.Context, assetIdentifier string) (int64, error) {

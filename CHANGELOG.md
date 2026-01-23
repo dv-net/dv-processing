@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 
 ### Unreleased
 
+### [0.9.9] - 2026-01-23
+
+- fix: increase default page size for transaction
+- fix: enhance balance retrieval by adding fallback to node for explorer
+- fix: add transaction existence check to prevent "nonce too low" error
+
 ### [0.9.8] - 2025-11-17
 
 - fix: disable CGO support in goreleaser configuration

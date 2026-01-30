@@ -2,6 +2,7 @@ package wallets
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	"github.com/dv-net/dv-processing/internal/dispatcher"
@@ -25,6 +26,8 @@ type Service struct {
 
 	cacherInUse      atomic.Bool
 	cacheLastLogTime atomic.Int64
+	cacheReady       chan struct{}
+	cacheReadyOnce   sync.Once
 
 	sdk *walletsdk.SDK
 }
@@ -46,6 +49,7 @@ func New(
 		coldWallet:        newColdWallets(st, vl, sdk),
 		hotWallets:        newHotWallets(conf, st, vl, sdk, publisher),
 		processingWallets: newProcessingWallets(conf, st, vl, sdk),
+		cacheReady:        make(chan struct{}),
 	}
 }
 

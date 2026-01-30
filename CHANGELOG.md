@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 - fix: increase default page size for transaction
 - fix: enhance balance retrieval by adding fallback to node for explorer
 - fix: add transaction existence check to prevent "nonce too low" error
+- fix: processed block wait load cache address from db for first start
 
 ### [0.9.8] - 2025-11-17
 

@@ -37,6 +37,11 @@ func (s *Service) CheckWallet(ctx context.Context, blockchain wconstants.Blockch
 	}
 
 	if s.config.UseCacheForWallets {
+		select {
+		case <-s.cacheReady:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 		return s.checkWalletInCache(blockchain, address)
 	}
 

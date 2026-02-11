@@ -154,7 +154,7 @@ All environment variables are prefixed with `PROCESSING_` and follow this struct
 | | Category | Prefix | Examples |
 |:--|:---------|:-------|:---------|
 | 📝 | Logging | `PROCESSING_LOG_*` | `PROCESSING_LOG_LEVEL`, `PROCESSING_LOG_FORMAT` |
-| 📊 | Monitoring | `PROCESSING_OPS_*` | `PROCESSING_OPS_METRICS_ENABLED`, `PROCESSING_OPS_HEALTHY_ENABLED` |
+| 📊 | Ops / Monitoring | `PROCESSING_OPS_*` | `PROCESSING_OPS_METRICS_ENABLED`, `PROCESSING_OPS_HEALTHY_ENABLED` |
 | 🗄️ | Database | `PROCESSING_POSTGRES_*` | `PROCESSING_POSTGRES_ADDR`, `PROCESSING_POSTGRES_DB_NAME` |
 | 🔌 | gRPC Server | `PROCESSING_GRPC_*` | `PROCESSING_GRPC_ADDR`, `PROCESSING_GRPC_REFLECT_ENABLED` |
 | ⛓️ | Blockchains | `PROCESSING_BLOCKCHAIN_*` | `PROCESSING_BLOCKCHAIN_TRON_ENABLED` |

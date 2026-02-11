@@ -16,9 +16,9 @@
 
 > 🔒 **Non-custodial** — private keys and mnemonics never leave your server
 >
-> ⚡ **High-performance** — Go 1.24, ConnectRPC/gRPC, PostgreSQL, River queue
+> ⚡ **High-performance** — ConnectRPC/gRPC, PostgreSQL, River queue
 >
-> 🌐 **Multi-chain** — 11 blockchains: EVM, UTXO, and Tron
+> 🌐 **Multi-chain** — 11 blockchains: EVM, UTXO and Tron
 >
 > 🧱 **Modular** — FSM workflows, clean service layer, event-driven architecture
 
@@ -229,7 +229,7 @@ Support the development of the project with crypto:
 
 <div align="center">
 
-**© 2025 DV.net** • [DV Technologies Ltd.](https://dv.net)
+**© 2026 DV.net** • [DV Technologies Ltd.](https://dv.net)
 
 *Built with ❤️ for the crypto community*
 

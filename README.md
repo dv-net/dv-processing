@@ -44,24 +44,6 @@
 
 ---
 
-## ⛓️ Supported Blockchains
-
-| Chain | Type | Network |
-|:------|:-----|:--------|
-| Tron (TRX) | Account-based | mainnet |
-| Ethereum (ETH) | EVM | mainnet / testnet |
-| BNB Smart Chain (BSC) | EVM | mainnet / testnet |
-| Polygon (MATIC) | EVM | mainnet / testnet |
-| Arbitrum (ARB) | EVM | mainnet / testnet |
-| Optimism (OP) | EVM | mainnet / testnet |
-| Linea | EVM | mainnet / testnet |
-| Bitcoin (BTC) | UTXO | mainnet / testnet |
-| Litecoin (LTC) | UTXO | mainnet / testnet |
-| Bitcoin Cash (BCH) | UTXO | mainnet / testnet |
-| Dogecoin (DOGE) | UTXO | mainnet / testnet |
-
----
-
 ## 🧭 Architecture at a Glance
 
 ```text
@@ -207,31 +189,13 @@ This generates and installs a systemd unit file for production deployments on Li
 
 The ConnectRPC API exposes the following services on port `9000`:
 
-| | Service | Description |
-|:--|:--------|:------------|
-| 👤 | `ClientService` | Merchant/client management and callback URLs |
-| 🏠 | `OwnerService` | Owner creation, mnemonic management, 2FA |
-| 💳 | `WalletService` | Hot, cold, and processing wallet operations |
-| 💸 | `TransferService` | Transfer creation and status tracking |
-| ⚙️ | `SystemService` | System info, version checking, logs |
+- 👤 **ClientService** — merchant/client management and callback URLs
+- 🏠 **OwnerService** — owner creation, mnemonic management, 2FA
+- 💳 **WalletService** — hot, cold, and processing wallet operations
+- 💸 **TransferService** — transfer creation and status tracking
+- ⚙️ **SystemService** — system info, version checking, logs
 
 Proto definitions are located in `schema/processing/` and compiled with `buf`.
-
----
-
-## 🤝 Contributing
-
-```bash
-# Before submitting a PR
-make lint
-make fmt
-go test ./...
-```
-
-- ⭐ Star the repo if it helps your project.
-- 🐛 Report bugs via Issues.
-- 💡 Propose new features and use cases.
-- 🔧 Pull Requests are welcome!
 
 ---
 

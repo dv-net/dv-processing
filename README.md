@@ -1,167 +1,272 @@
-# DV PROCESSING
+<div align="center">
 
-## Usage
+## ⚙️ DV Processing
+
+<br>
+
+[🌐 Website](https://dv.net) • [📖 Docs](https://docs.dv.net) • [🔌 API](https://docs.dv.net/en/operations/post-v1-external-wallet.html) • [💬 Support](https://dv.net/#support)
+
+</div>
+
+---
+
+## 💡 Overview
+
+**DV Processing** is the blockchain engine behind the DV.net ecosystem — a high-performance, multi-chain service that creates wallets, executes transfers, and tracks on-chain activity across 11 blockchains. Written in Go, it exposes a ConnectRPC/gRPC API and is designed to run on your own infrastructure.
+
+> 🔒 **Non-custodial** — private keys and mnemonics never leave your server
+>
+> ⚡ **High-performance** — Go 1.24, ConnectRPC/gRPC, PostgreSQL, River queue
+>
+> 🌐 **Multi-chain** — 11 blockchains: EVM, UTXO, and Tron
+>
+> 🧱 **Modular** — FSM workflows, clean service layer, event-driven architecture
+
+---
+
+## ✨ Highlights
+
+**🎯 Blockchain capabilities**
+- ✅ Hot, cold, and processing wallet management per owner
+- ✅ Transfer processing with per-chain finite state machines
+- ✅ Tron resource delegation (energy & bandwidth) and activation contracts
+- ✅ EVM gas price limits and fee control per network
+- ✅ Bitcoin-family UTXO management with configurable fee-per-byte
+- ✅ Block scanning and explorer proxy integration
+
+**🔧 Technical features**
+- ✅ ConnectRPC/gRPC API with request signing and authentication interceptors
+- ✅ Background job processing via River queue
+- ✅ Webhook delivery with retries, cleanup workers, and configurable TTL
+- ✅ PostgreSQL storage with type-safe queries (`sqlc` + `pgxgen`)
+- ✅ Protobuf-first API design with `buf` code generation
+- ✅ Systemd deployment out of the box
+
+---
+
+## ⛓️ Supported Blockchains
+
+| Chain | Type | Network |
+|:------|:-----|:--------|
+| Tron (TRX) | Account-based | mainnet |
+| Ethereum (ETH) | EVM | mainnet / testnet |
+| BNB Smart Chain (BSC) | EVM | mainnet / testnet |
+| Polygon (MATIC) | EVM | mainnet / testnet |
+| Arbitrum (ARB) | EVM | mainnet / testnet |
+| Optimism (OP) | EVM | mainnet / testnet |
+| Linea | EVM | mainnet / testnet |
+| Bitcoin (BTC) | UTXO | mainnet / testnet |
+| Litecoin (LTC) | UTXO | mainnet / testnet |
+| Bitcoin Cash (BCH) | UTXO | mainnet / testnet |
+| Dogecoin (DOGE) | UTXO | mainnet / testnet |
+
+---
+
+## 🧭 Architecture at a Glance
 
 ```text
-NAME:
-   dv-processing - A new cli application
-
-USAGE:
-   dv-processing [global options] [command [command options]]
-
-VERSION:
-   local-unknown
-
-COMMANDS:
-   config      validate, gen envs and flags for config
-   start       start the server
-   migrate     migration database schema
-   blockchain  blockchain tools
-   utils       custom cli utils
-   version     print the version
-   help, h     Shows a list of commands or help for one command
-
-GLOBAL OPTIONS:
-   --help, -h     show help
-   --version, -v  print the version
+cmd/                  CLI entrypoints (server, webhooks)
+internal/
+  handler/            ConnectRPC request handlers
+  services/           Business logic (clients, owners, wallets, transfers, webhooks)
+  fsm/                Finite state machines per blockchain (tron, evm, btc, ltc, bch, doge)
+  workflow/           Workflow engine with stages, steps, and retries
+  store/              PostgreSQL repositories (sqlc-generated)
+  dispatcher/         Event dispatching
+  taskmanager/        Background jobs (River)
+  eproxy/             Explorer proxy client
+  rmanager/           Resource manager (Tron delegation)
+  watcher/            Blockchain watcher integration
+  tscanner/           Transfer scanner
+  escanner/           Explorer scanner
+pkg/
+  walletsdk/          Blockchain wallet SDKs (btc, ltc, bch, doge, evm, tron)
+  postgres/           Database connection management
+  encryption/         Encryption utilities
+  retry/              Retry policies
+schema/               Protobuf service definitions
+sql/                  Migrations and SQL queries
+artifacts/            Deployment configs (systemd, scripts)
 ```
 
-## Environments
+---
 
-| **Name**                                                             | **Required** | **Secret** | **Default value**                    | **Usage**                                                                  | **Example**                 |
-|----------------------------------------------------------------------|--------------|------------|--------------------------------------|----------------------------------------------------------------------------|-----------------------------|
-| `PROCESSING_LOG_FORMAT`                                              |              |            | `json`                               | allows to set custom formatting                                            | `json`                      |
-| `PROCESSING_LOG_LEVEL`                                               |              |            | `info`                               | allows to set custom logger level                                          | `info`                      |
-| `PROCESSING_LOG_CONSOLE_COLORED`                                     |              |            | `false`                              | allows to set colored console output                                       | `false`                     |
-| `PROCESSING_LOG_TRACE`                                               |              |            | `fatal`                              | allows to set custom trace level                                           | `fatal`                     |
-| `PROCESSING_LOG_WITH_CALLER`                                         |              |            | `false`                              | allows to show caller                                                      | `false`                     |
-| `PROCESSING_LOG_WITH_STACK_TRACE`                                    |              |            | `false`                              | allows to show stack trace                                                 | `false`                     |
-| `PROCESSING_OPS_ENABLED`                                             |              |            | `false`                              | allows to enable ops server                                                | `false`                     |
-| `PROCESSING_OPS_NETWORK`                                             | ✅            |            | `tcp`                                | allows to set ops listen network: tcp/udp                                  | `tcp`                       |
-| `PROCESSING_OPS_TRACING_ENABLED`                                     |              |            | `false`                              | allows to enable tracing                                                   | `false`                     |
-| `PROCESSING_OPS_METRICS_ENABLED`                                     |              |            | `false`                              | allows to enable metrics                                                   | `true`                      |
-| `PROCESSING_OPS_METRICS_PATH`                                        | ✅            |            | `/metrics`                           | allows to set custom metrics path                                          | `/metrics`                  |
-| `PROCESSING_OPS_METRICS_PORT`                                        | ✅            |            | `10000`                              | allows to set custom metrics port                                          | `10000`                     |
-| `PROCESSING_OPS_METRICS_BASIC_AUTH_ENABLED`                          |              |            | `false`                              | allows to enable basic auth                                                |                             |
-| `PROCESSING_OPS_METRICS_BASIC_AUTH_USERNAME`                         |              |            |                                      | auth username                                                              |                             |
-| `PROCESSING_OPS_METRICS_BASIC_AUTH_PASSWORD`                         |              |            |                                      | auth password                                                              |                             |
-| `PROCESSING_OPS_HEALTHY_ENABLED`                                     |              |            | `false`                              | allows to enable health checker                                            | `true`                      |
-| `PROCESSING_OPS_HEALTHY_PATH`                                        | ✅            |            | `/healthy`                           | allows to set custom healthy path                                          | `/healthy`                  |
-| `PROCESSING_OPS_HEALTHY_PORT`                                        | ✅            |            | `10000`                              | allows to set custom healthy port                                          | `10000`                     |
-| `PROCESSING_OPS_PROFILER_ENABLED`                                    |              |            | `false`                              | allows to enable profiler                                                  | `false`                     |
-| `PROCESSING_OPS_PROFILER_PATH`                                       | ✅            |            | `/debug/pprof`                       | allows to set custom profiler path                                         | `/debug/pprof`              |
-| `PROCESSING_OPS_PROFILER_PORT`                                       | ✅            |            | `10000`                              | allows to set custom profiler port                                         | `10000`                     |
-| `PROCESSING_OPS_PROFILER_WRITE_TIMEOUT`                              |              |            | `60`                                 | HTTP server write timeout in seconds                                       | `60`                        |
-| `PROCESSING_POSTGRES_ADDR`                                           | ✅            |            |                                      |                                                                            | `localhost:5432`            |
-| `PROCESSING_POSTGRES_USER`                                           | ✅            | ✅          |                                      |                                                                            |                             |
-| `PROCESSING_POSTGRES_PASSWORD`                                       | ✅            | ✅          |                                      |                                                                            |                             |
-| `PROCESSING_POSTGRES_DB_NAME`                                        | ✅            |            |                                      |                                                                            |                             |
-| `PROCESSING_POSTGRES_PING_INTERVAL`                                  | ✅            |            | `10`                                 |                                                                            |                             |
-| `PROCESSING_POSTGRES_MIN_CONNS`                                      | ✅            |            | `3`                                  |                                                                            |                             |
-| `PROCESSING_POSTGRES_MAX_CONNS`                                      | ✅            |            | `6`                                  |                                                                            |                             |
-| `PROCESSING_GRPC_ENABLED`                                            |              |            | `true`                               | allows to enable server                                                    | `true`                      |
-| `PROCESSING_GRPC_ADDR`                                               | ✅            |            | `:9000`                              | server listen address                                                      | `localhost:9000`            |
-| `PROCESSING_GRPC_REFLECT_ENABLED`                                    |              |            | `false`                              | allows to enable reflection service                                        | `false`                     |
-| `PROCESSING_EXPLORER_PROXY_NAME`                                     | ✅            |            | `explorer-proxy-client`              |                                                                            | `backend-connectrpc-client` |
-| `PROCESSING_EXPLORER_PROXY_ADDR`                                     |              |            | `https://explorer-proxy.dv.net`      | connectrpc server address                                                  | `localhost:9000`            |
-| `PROCESSING_BLOCKCHAIN_TRON_ENABLED`                                 |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_TRON_NODE_GRPC_ADDRESS`                       |              |            | `node-tron-grpc.dv.net:443`          | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_TRON_NODE_USE_TLS`                            |              |            | `true`                               | use tls                                                                    |                             |
-| `PROCESSING_BLOCKCHAIN_TRON_ACTIVATION_CONTRACT_ADDRESS`             |              |            | `TQuCVz7ZXMwcuT2ERcBYCZzLeNAZofcTgY` |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_TRON_USE_BURN_TRX_ACTIVATION`                 |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_ETHEREUM_ENABLED`                             |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_ETHEREUM_NETWORK`                             | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_ETHEREUM_NODE_ADDRESS`                        |              |            | `https://node-eth.dv.net`            | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_ETHEREUM_ATTRIBUTES_MAX_GAS_PRICE`            |              |            | `8`                                  | max gas price in Gwei                                                      |                             |
-| `PROCESSING_BLOCKCHAIN_BINANCE_SMART_CHAIN_ENABLED`                  |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_BINANCE_SMART_CHAIN_NETWORK`                  | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_BINANCE_SMART_CHAIN_NODE_ADDRESS`             |              |            | `https://node-bsc.dv.net`            | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_BINANCE_SMART_CHAIN_ATTRIBUTES_MAX_GAS_PRICE` |              |            | `3`                                  | max gas price in Gwei                                                      |                             |
-| `PROCESSING_BLOCKCHAIN_POLYGON_ENABLED`                              |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_POLYGON_NETWORK`                              | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_POLYGON_NODE_ADDRESS`                         |              |            | `https://node-polygon.dv.net`        | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_POLYGON_ATTRIBUTES_MAX_GAS_PRICE`             |              |            | `130`                                | max gas price in Gwei                                                      |                             |
-| `PROCESSING_BLOCKCHAIN_ARBITRUM_ENABLED`                             |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_ARBITRUM_NETWORK`                             | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_ARBITRUM_NODE_ADDRESS`                        |              |            | `https://node-arbitrum.dv.net`       | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_ARBITRUM_ATTRIBUTES_MAX_GAS_PRICE`            |              |            | `1`                                  | max gas price in Gwei                                                      |                             |
-| `PROCESSING_BLOCKCHAIN_OPTIMISM_ENABLED`                             |              |            | `false`                              |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_OPTIMISM_NETWORK`                             | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_OPTIMISM_NODE_ADDRESS`                        |              |            |                                      | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_OPTIMISM_ATTRIBUTES_MAX_GAS_PRICE`            |              |            | `0.001`                              | max gas price in Gwei                                                      |                             |
-| `PROCESSING_BLOCKCHAIN_LINEA_ENABLED`                                |              |            | `false`                              |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_LINEA_NETWORK`                                | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_LINEA_NODE_ADDRESS`                           |              |            |                                      | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_LINEA_ATTRIBUTES_MAX_GAS_PRICE`               |              |            | `1`                                  | max gas price in Gwei                                                      |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_ENABLED`                              |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_NETWORK`                              | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_ATTRIBUTES_FEE_PER_BYTE`              |              |            | `7`                                  |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_ATTRIBUTES_MIN_UTXO_AMOUNT`           |              |            | `0`                                  | min UTXO amount in satoshi                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_NODE_ADDRESS`                         |              |            | `node-btc.dv.net:443`                | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_NODE_LOGIN`                           |              | ✅          |                                      | node login                                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_NODE_SECRET`                          |              | ✅          |                                      |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_NODE_USE_TLS`                         |              |            | `true`                               | use TLS for connection                                                     |                             |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_ENABLED`                             |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_NETWORK`                             | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_ATTRIBUTES_FEE_PER_BYTE`             |              |            | `10`                                 |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_ATTRIBUTES_MIN_UTXO_AMOUNT`          |              |            | `0`                                  | min UTXO amount in satoshi                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_NODE_ADDRESS`                        |              |            | `node-ltc.dv.net`                    | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_NODE_LOGIN`                          |              | ✅          |                                      | node login                                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_NODE_SECRET`                         |              | ✅          |                                      |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_LITECOIN_NODE_USE_TLS`                        |              |            | `true`                               | use TLS for connection                                                     |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_ENABLED`                         |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_NETWORK`                         | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_ATTRIBUTES_FEE_PER_BYTE`         |              |            | `1`                                  |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_ATTRIBUTES_MIN_UTXO_AMOUNT`      |              |            | `0`                                  | min UTXO amount in satoshi                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_NODE_ADDRESS`                    |              |            | `node-bch.dv.net`                    | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_NODE_LOGIN`                      |              | ✅          |                                      | node login                                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_NODE_SECRET`                     |              | ✅          |                                      |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_BITCOIN_CASH_NODE_USE_TLS`                    |              |            | `true`                               | use TLS for connection                                                     |                             |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_ENABLED`                             |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_NETWORK`                             | ✅            |            | `mainnet`                            |                                                                            | `mainnet / testnet`         |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_ATTRIBUTES_FEE_PER_BYTE`             |              |            | `50000`                              |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_ATTRIBUTES_MIN_UTXO_AMOUNT`          |              |            | `0`                                  | min UTXO amount in satoshi                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_NODE_ADDRESS`                        |              |            | `node-doge.dv.net:443`               | node address                                                               |                             |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_NODE_LOGIN`                          |              | ✅          |                                      | node login                                                                 |                             |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_NODE_SECRET`                         |              | ✅          |                                      |                                                                            |                             |
-| `PROCESSING_BLOCKCHAIN_DOGECOIN_NODE_USE_TLS`                        |              |            | `true`                               | use TLS for connection                                                     |                             |
-| `PROCESSING_RESOURCE_MANAGER_ENABLED`                                |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_RESOURCE_MANAGER_CONNECT_NAME`                           | ✅            |            | `orders-client`                      |                                                                            | `backend-connectrpc-client` |
-| `PROCESSING_RESOURCE_MANAGER_CONNECT_ADDR`                           |              |            | `https://delegate.dv.net`            | connectrpc server address                                                  | `localhost:9000`            |
-| `PROCESSING_RESOURCE_MANAGER_USE_ACTIVATOR_CONTRACT`                 |              |            | `true`                               |                                                                            |                             |
-| `PROCESSING_RESOURCE_MANAGER_DELEGATION_DURATION`                    |              |            | `15s`                                |                                                                            | `60s/1m/1h`                 |
-| `PROCESSING_WATCHER_CLIENT_SECRET`                                   |              |            |                                      |                                                                            |                             |
-| `PROCESSING_WATCHER_GRPC_RECONNECTION_DELAY`                         |              |            | `1s`                                 |                                                                            | `1s`                        |
-| `PROCESSING_WATCHER_ENABLED`                                         |              |            | `false`                              |                                                                            |                             |
-| `PROCESSING_WATCHER_CONNECT_NAME`                                    | ✅            |            | `connectrpc-client`                  |                                                                            | `backend-connectrpc-client` |
-| `PROCESSING_WATCHER_CONNECT_ADDR`                                    |              |            |                                      | connectrpc server address                                                  | `localhost:9000`            |
-| `PROCESSING_WEBHOOKS_SENDER_ENABLED`                                 |              |            | `true`                               | allows to enable and disable webhook sender                                | `true / false`              |
-| `PROCESSING_WEBHOOKS_SENDER_QUANTITY`                                |              |            | `500`                                | allows you to specify the number of webhooks to send at once               | `500`                       |
-| `PROCESSING_WEBHOOKS_CLEANUP_ENABLED`                                |              |            | `true`                               | allows to enable and disable webhook cleanup worker                        | `true / false`              |
-| `PROCESSING_WEBHOOKS_CLEANUP_CRON`                                   |              |            | `0 1 * * *`                          | allows to set custom cron rule for cleanup old competed webhooks           | `0 1 * * *`                 |
-| `PROCESSING_WEBHOOKS_CLEANUP_MAX_AGE`                                |              |            | `720h0m0s`                           | allows to set max age for completed webhooks. by default it 720h (30 days) | `720h`                      |
-| `PROCESSING_WEBHOOKS_REMOVE_AFTER_SENT`                              |              |            | `false`                              | allows to remove a webhook after it has been successfully sent             | `true / false`              |
-| `PROCESSING_INTERCEPTORS_DISABLE_CHECKING_SIGN`                      |              |            | `false`                              | allows to disable checking sign of request                                 | `true / false`              |
-| `PROCESSING_TRANSFERS_ENABLED`                                       |              |            | `true`                               | allows to enable transfers service                                         | `true / false`              |
-| `PROCESSING_USE_CACHE_FOR_WALLETS`                                   |              |            | `true`                               | allows to use cache for wallets. this option is experimental               | `true / false`              |
-| `PROCESSING_MERCHANT_ADMIN_BASE_URL`                                 |              |            | `https://api.dv.net`                 | allows to set merchant admin service endpoint                              | `https://api.dv.net`        |
-| `PROCESSING_UPDATER_BASE_URL`                                        |              |            | `http://localhost:8081`              | allows to set updater service endpoint                                     | `http://localhost:8081`     |
+## 🚀 Getting Started
 
-## Install Systemd service
+**Build from source**
+```bash
+git clone https://github.com/dv-net/dv-processing.git
+cd dv-processing
 
-Use the following command to install the systemd service
+make build
+```
+
+The binary will appear at `bin/processing`.
+
+**Run locally**
+```bash
+cp config.template.yaml config.yaml
+# edit config.yaml with your database and node settings
+
+make migrate up
+make start
+```
+
+> ℹ️ Full deployment guide and Docker Compose setup are available in the [`dv-bundle`](https://github.com/dv-net/dv-bundle) repo and at https://docs.dv.net.
+
+---
+
+## 🛠 CLI Commands
+
+- `dv-processing start` — start the gRPC/ConnectRPC server.
+- `dv-processing migrate` — run database migrations (up / down / drop).
+- `dv-processing blockchain` — blockchain tools (e.g. tron reclaim-resource).
+- `dv-processing config` — validate config, generate envs and flags.
+- `dv-processing utils` — utilities (systemd install, readme generation).
+- `dv-processing version` — print the current version.
+
+**💡 Example — reclaim Tron resources**
+```bash
+./dv-processing blockchain tron reclaim-resource \
+  -pa TQ6DkBmxz3Zk7neh8mwmmkfJsVjrE9wwjY \
+  -da TAoG3QdbgZ7saGBHiXVHRgdNJVpwUGqZZh \
+  -type bandwidth
+```
+
+---
+
+## 🧪 Development & Testing
+
+**📦 Install dev tools**
+```bash
+make install-dev-tools
+```
+
+**⚙️ Code generation**
+```bash
+make gen          # run all generators (sql, proto, envs, abi)
+make gensql       # regenerate sqlc queries
+make genproto     # regenerate protobuf & ConnectRPC stubs
+make genenvs      # regenerate environment variable docs
+```
+
+**🔍 Linting & formatting**
+```bash
+make lint
+make fmt
+```
+
+**🔄 Live reload**
+```bash
+make watch        # uses air for hot reloading
+```
+
+---
+
+## 📋 Configuration
+
+The service is configured via `config.yaml` (see `config.template.yaml`) and/or environment variables.
+
+All environment variables are prefixed with `PROCESSING_` and follow this structure:
+
+| | Category | Prefix | Examples |
+|:--|:---------|:-------|:---------|
+| 📝 | Logging | `PROCESSING_LOG_*` | `PROCESSING_LOG_LEVEL`, `PROCESSING_LOG_FORMAT` |
+| 📊 | Ops / Monitoring | `PROCESSING_OPS_*` | `PROCESSING_OPS_METRICS_ENABLED`, `PROCESSING_OPS_HEALTHY_ENABLED` |
+| 🗄️ | Database | `PROCESSING_POSTGRES_*` | `PROCESSING_POSTGRES_ADDR`, `PROCESSING_POSTGRES_DB_NAME` |
+| 🔌 | gRPC Server | `PROCESSING_GRPC_*` | `PROCESSING_GRPC_ADDR`, `PROCESSING_GRPC_REFLECT_ENABLED` |
+| ⛓️ | Blockchains | `PROCESSING_BLOCKCHAIN_*` | `PROCESSING_BLOCKCHAIN_TRON_ENABLED` |
+| 🔔 | Webhooks | `PROCESSING_WEBHOOKS_*` | `PROCESSING_WEBHOOKS_SENDER_ENABLED` |
+| 💸 | Transfers | `PROCESSING_TRANSFERS_*` | `PROCESSING_TRANSFERS_ENABLED` |
+
+> ℹ️ Full environment variable reference is auto-generated via `make genenvs`.
+
+---
+
+## 📦 Deployment
+
+**Systemd**
+```bash
+./dv-processing utils systemd
+```
+
+This generates and installs a systemd unit file for production deployments on Linux.
+
+---
+
+## 🔐 Security
+
+1. 🔓 **Non-custodial** — mnemonics and private keys are encrypted at rest and never leave the server.
+2. ✍️ **Request signing** — all API calls are authenticated via signature-based interceptors.
+3. 🛡️ **Two-factor authentication** — TOTP-based 2FA for sensitive owner operations.
+4. 🔑 **Encrypted storage** — mnemonics and OTP secrets are encrypted in the database.
+
+---
+
+## 📡 API Services
+
+The ConnectRPC API exposes the following services on port `9000`:
+
+| | Service | Description |
+|:--|:--------|:------------|
+| 👤 | `ClientService` | Merchant/client management and callback URLs |
+| 🏠 | `OwnerService` | Owner creation, mnemonic management, 2FA |
+| 💳 | `WalletService` | Hot, cold, and processing wallet operations |
+| 💸 | `TransferService` | Transfer creation and status tracking |
+| ⚙️ | `SystemService` | System info, version checking, logs |
+
+Proto definitions are located in `schema/processing/` and compiled with `buf`.
+
+---
+
+## 🤝 Contributing
 
 ```bash
-./dv_processing utils systemd
+# Before submitting a PR
+make lint
+make fmt
+go test ./...
 ```
 
-## Addresses for tests
+- ⭐ Star the repo if it helps your project.
+- 🐛 Report bugs via Issues.
+- 💡 Propose new features and use cases.
+- 🔧 Pull Requests are welcome!
 
-```text
-Tron Bybit wallet: TU4vEruvZwLLkSfV9bNw12EJTPvNr7Pvaa
-Ethereum Coinbase cold wallet: 0xb5d85cbf7cb3ee0d56b3bb207d5fc4b82f43f511
-Polygon polymarket: 0xa7fd99748ce527eadc0bdac60cba8a4ef4090f7c
-Litecoin ltc1qpkme9t7h3sd47ku3mlyrysqwf5uy9xy52yqss4
-Bitcoin: bc1qryhgpmfv03qjhhp2dj8nw8g4ewg08jzmgy3cyx
-Bitcoin cash: qp028nlln35nwnv5a9dssw9w57z5n765rgenr3suw6
-```
+---
+
+## 💝 Donations
+
+Support the development of the project with crypto:
+
+> <img src="docs/assets/icons/coins/IconUsdt.png" width="17"> **USDT (Tron)** — `TCB4bYYN5x1z9Z4bBZ7p3XxcMwdtCfmNdN`
+
+> <img src="docs/assets/icons/coins/IconBtcBitcoin.png" width="17"> **Bitcoin** — `bc1qemvhkgzr4r7ksgxl8lv0lw7mnnthfc6990v3c2`
+
+> <img src="docs/assets/icons/coins/IconTrxTron.png" width="17"> **TRON (TRX)** — `TCB4bYYN5x1z9Z4bBZ7p3XxcMwdtCfmNdN`
+
+> <img src="docs/assets/icons/coins/IconEthEthereum.png" width="17"> **Ethereum** — `0xf1e4c7b968a20aae891cc18b1d5836b806691d47`
+
+🔗 Other networks and tokens (BNB Chain, Arbitrum, Polygon, Litecoin, Dogecoin, Bitcoin Cash, etc.) are available at **[payment form](https://cloud.dv.net/pay/store/208ec77f-d516-46b9-b280-3c12e1a75071/donate)**
+
+---
+
+## 📞 Contact
+
+<div align="center">
+
+**Telegram:** [@dv_net_support_bot](https://t.me/dv_net_support_bot) • **Telegram Chat:** [@dv_net_support_chat](https://t.me/dv_net_support_chat) • **Discord:** [discord.gg/Szy2XGsr](https://discord.gg/Szy2XGsr)
+
+**Email:** [support@dv.net](https://dv.net/#support) • **Website:** [dv.net](https://dv.net) • **Documentation:** [docs.dv.net](https://docs.dv.net)
+
+</div>
+
+---
+
+<div align="center">
+
+**© 2025 DV.net** • [DV Technologies Ltd.](https://dv.net)
+
+*Built with ❤️ for the crypto community*
+
+</div>

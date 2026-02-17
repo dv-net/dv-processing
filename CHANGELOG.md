@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ### Unreleased
 - Added rollback support [DV-1943]
 
+- feat: redesign README.md [DV-4185]
+- fix: processed block wait load cache address from db for first start
+
 ### [0.9.9] - 2026-01-23
 
 - fix: increase default page size for transaction

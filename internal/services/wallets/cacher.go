@@ -17,17 +17,13 @@ func (s *Service) updateCacheWrapper(ctx context.Context, isEnabled bool) error 
 		return nil
 	}
 
+	if err := s.cacherHandler(ctx); err != nil {
+		return fmt.Errorf("initial cache load: %w", err)
+	}
+
 	ticker := time.NewTicker(cacherInterval)
 	defer ticker.Stop()
 
-	// immediately process webhooks after startup service
-	go func() {
-		if err := s.cacherHandler(ctx); err != nil {
-			s.logger.Error(err)
-		}
-	}()
-
-	// process webhooks by ticker
 	for {
 		select {
 		case <-ctx.Done():
@@ -137,6 +133,15 @@ func (s *Service) cacherHandler(ctx context.Context) error {
 	if err := eg.Wait(); err != nil {
 		return err
 	}
+
+	s.cacheReadyOnce.Do(func() {
+		s.logger.Infow("wallet cache loaded",
+			"hot_wallets", dbHotWalletsLength,
+			"processing_wallets", dbProcessingWalletsLength,
+			"cold_wallets", dbColdWalletsLength,
+		)
+		close(s.cacheReady)
+	})
 
 	now := time.Now()
 

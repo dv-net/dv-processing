@@ -1,0 +1,1 @@
+ALTER TABLE processed_blocks DROP COLUMN IF EXISTS hash;

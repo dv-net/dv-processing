@@ -85,6 +85,8 @@ func (o *ResourceManager) Validate() error {
 }
 
 func (c *Config) SetDefaults() {
+	c.Blockchain.EScanner.BlocksInChunk = 20
+
 	c.ExplorerProxy.Addr = "https://explorer-proxy.dv.net"
 	c.ExplorerProxy.Name = "explorer-proxy-client"
 

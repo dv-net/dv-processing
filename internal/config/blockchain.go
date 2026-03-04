@@ -1,8 +1,16 @@
 package config
 
-import "github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
+import (
+	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
+)
+
+type EScanner struct {
+	BlocksInChunk int `yaml:"blocks_in_chunk" default:"20"`
+}
 
 type Blockchain struct {
+	EScanner EScanner `yaml:"e_scanner"`
+
 	// Tron
 	Tron TronBlockchain
 

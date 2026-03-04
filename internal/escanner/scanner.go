@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -129,7 +130,7 @@ func (s *scanner) start(ctx context.Context) error {
 	return nil
 }
 
-// handleBlock
+// handleBlocks processes all new blocks using parallel fetching per chunk and sequential commits.
 func (s *scanner) handleBlocks(ctx context.Context) error {
 	lpBlock := s.lastParsedBlockHeight.Load()
 	lnBlock := s.lastNodeBlockHeight.Load()
@@ -145,34 +146,127 @@ func (s *scanner) handleBlocks(ctx context.Context) error {
 		existsLastBlockDB = false
 	}
 
-	// Check for potential rollback before processing next block
-	if existsLastBlockDB && lpBlock >= 0 {
-		nextBlock := lpBlock + 1
-		s.logger.Debugf("Checking for rollback for next block %d", nextBlock)
-		if err := s.checkForRollback(ctx, nextBlock); err != nil {
-			return fmt.Errorf("rollback check for block %d: %w", nextBlock, err)
-		}
+	blocksInChunk := int64(s.conf.EScanner.BlocksInChunk)
+	if blocksInChunk <= 0 {
+		blocksInChunk = 1
+	}
 
-		// Reload lpBlock in case it was updated during rollback recovery
-		newLpBlock := s.lastParsedBlockHeight.Load()
-		if newLpBlock != lpBlock {
-			s.logger.Infof("Block height updated after rollback check: %d -> %d", lpBlock, newLpBlock)
-			lpBlock = newLpBlock
+	// Fetch last known hash once; updated in memory after each committed batch.
+	var lastKnownHash string
+	if existsLastBlockDB {
+		lastBlock, err := s.bs.ProcessedBlocks().LastBlock(ctx, s.blockchain)
+		if err == nil {
+			lastKnownHash = lastBlock.Hash
 		}
 	}
 
-	for i := lpBlock + 1; i <= lnBlock; i++ {
+	lag := lnBlock - lpBlock
+	var catchUpStart time.Time
+	var catchUpBlocksDone int64
+	if lag > int64(blocksInChunk) {
+		catchUpStart = time.Now()
+		s.logger.Infof("catch-up started: lag=%d blocks (from=%d to=%d)", lag, lpBlock+1, lnBlock)
+	}
+
+	for batchStart := lpBlock + 1; batchStart <= lnBlock; batchStart += blocksInChunk {
 		if ctx.Err() != nil {
 			return nil //nolint:nilerr
 		}
 
-		if err := s.handleBlock(i, existsLastBlockDB); err != nil { //nolint:contextcheck
-			return fmt.Errorf("handle block %d: %w", i, err)
+		batchEnd := min(batchStart+blocksInChunk-1, lnBlock)
+
+		results, err := s.loadBlocks(batchStart, batchEnd)
+		if err != nil {
+			return fmt.Errorf("load blocks [%d, %d]: %w", batchStart, batchEnd, err)
 		}
+
+		// Validate chain integrity before committing — catches rollbacks within the batch too.
+		if existsLastBlockDB {
+			if err := s.validateChain(results, lastKnownHash); err != nil {
+				s.logger.Warnf("chain validation failed: %s", err)
+				return s.handleRollback(ctx)
+			}
+		}
+
+		for _, r := range results {
+			if err := s.commitBlockResult(r, existsLastBlockDB); err != nil {
+				return fmt.Errorf("commit block %d: %w", r.height, err)
+			}
+			existsLastBlockDB = true
+		}
+
+		if len(results) > 0 {
+			lastKnownHash = results[len(results)-1].blockHash
+		}
+
+		if !catchUpStart.IsZero() {
+			catchUpBlocksDone += int64(len(results))
+			elapsed := time.Since(catchUpStart)
+			blocksPerSec := float64(catchUpBlocksDone) / elapsed.Seconds()
+			remaining := lag - catchUpBlocksDone
+			eta := time.Duration(float64(remaining)/blocksPerSec) * time.Second
+			s.logger.Infof("catch-up progress: %d/%d blocks done (%.0f blocks/s, ETA %s)",
+				catchUpBlocksDone, lag, blocksPerSec, eta.Round(time.Second))
+		}
+	}
+
+	if !catchUpStart.IsZero() {
+		elapsed := time.Since(catchUpStart)
+		blocksPerSec := float64(lag) / elapsed.Seconds()
+		s.logger.Infof("catch-up complete: %d blocks in %s (%.0f blocks/s)",
+			lag, elapsed.Round(time.Millisecond), blocksPerSec)
 	}
 
 	time.Sleep(100 * time.Millisecond)
 
+	return nil
+}
+
+// blockFetchResult holds data fetched for a single block (RPC only, no DB).
+type blockFetchResult struct {
+	height    int64
+	blockHash string
+	prevHash  string
+	whParams  []createWebhookParams
+}
+
+// loadBlocks fetches a range of blocks in parallel (like evm LoadBlocks), preserving order.
+func (s *scanner) loadBlocks(from, to int64) ([]blockFetchResult, error) {
+	size := int(to - from + 1)
+	results := make([]blockFetchResult, size)
+	errs := make([]error, size)
+
+	var wg sync.WaitGroup
+	for i := range size {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			results[idx], errs[idx] = s.fetchBlockData(from + int64(idx))
+		}(i)
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return results, nil
+}
+
+// validateChain checks that prevHash of each block matches the previous block's hash.
+// Catches rollbacks both at the batch boundary and within the batch.
+func (s *scanner) validateChain(results []blockFetchResult, lastKnownHash string) error {
+	for i, r := range results {
+		expected := lastKnownHash
+		if i > 0 {
+			expected = results[i-1].blockHash
+		}
+		if r.prevHash != "" && expected != "" && r.prevHash != expected {
+			return fmt.Errorf("block %d: prevHash=%s expected=%s", r.height, r.prevHash, expected)
+		}
+	}
 	return nil
 }
 
@@ -206,40 +300,39 @@ func (cwp *createWebhookParams) IsTrxHotWalletDeposit() bool {
 		*cwp.event.AddressTo != ""
 }
 
-// handleBlock
-func (s *scanner) handleBlock(blockHeight int64, existsLastBlockDB bool) error { //nolint:funlen
+// fetchBlockData fetches all data for a single block via RPC (no DB operations).
+func (s *scanner) fetchBlockData(blockHeight int64) (blockFetchResult, error) { //nolint:funlen
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	s.logger.Debugf("start processing block %d", blockHeight)
+	s.logger.Debugf("start fetching block %d", blockHeight)
 
 	now := time.Now()
 	txs, err := s.bs.EProxy().FindTransactions(ctx, s.blockchain, eproxy.FindTransactionsParams{
 		BlockHeight: utils.Pointer(uint64(blockHeight)), //nolint:gosec
 	})
 	if err != nil {
-		return fmt.Errorf("find transactions: %w", err)
+		return blockFetchResult{}, fmt.Errorf("find transactions: %w", err)
 	}
 
 	s.logger.Debugf("found %d transactions in block %d in %s", len(txs), blockHeight, time.Since(now))
 
-	// Get block hash for rollback detection
 	block, err := s.bs.EProxy().BlocksClient().Get(ctx, connect.NewRequest(&blocksv2.GetRequest{
 		Blockchain: eproxy.ConvertBlockchain(s.blockchain),
 		Height:     uint64(blockHeight), //nolint:gosec
 	}))
 	if err != nil {
-		return fmt.Errorf("get block for hash: %w", err)
+		return blockFetchResult{}, fmt.Errorf("get block for hash: %w", err)
 	}
 
 	blockHash := block.Msg.GetItem().GetHash()
+	prevHash := block.Msg.GetItem().GetPrevHash()
 
 	createWhParams := utils.NewSlice[createWebhookParams]()
 
 	eg, gCtx := errgroup.WithContext(ctx)
 	eg.SetLimit(100)
 
-	now = time.Now()
 	for _, tx := range txs {
 		eg.Go(func() error {
 			for _, event := range tx.Events {
@@ -287,16 +380,28 @@ func (s *scanner) handleBlock(blockHeight int64, existsLastBlockDB bool) error {
 	}
 
 	if err := eg.Wait(); err != nil {
-		return fmt.Errorf("wait for all transactions: %w", err)
+		return blockFetchResult{}, fmt.Errorf("wait for all transactions: %w", err)
 	}
 
-	// create webhooks
+	return blockFetchResult{
+		height:    blockHeight,
+		blockHash: blockHash,
+		prevHash:  prevHash,
+		whParams:  createWhParams.GetAll(),
+	}, nil
+}
 
-	// handle block in postgres transaction
+// commitBlockResult writes a fetched block result to the database (must be called sequentially).
+func (s *scanner) commitBlockResult(r blockFetchResult, existsLastBlockDB bool) error { //nolint:funlen
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	now := time.Now()
+
 	if err := pgx.BeginTxFunc(ctx, s.store.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
-		if len(createWhParams.GetAll()) != 0 {
-			batchParams := make([]webhooks.BatchCreateParams, 0, createWhParams.Len())
-			for _, params := range createWhParams.GetAll() {
+		if len(r.whParams) != 0 {
+			batchParams := make([]webhooks.BatchCreateParams, 0, len(r.whParams))
+			for _, params := range r.whParams {
 				transactionData := webhooks.TransactionData{
 					Hash:          params.tx.Hash,
 					Confirmations: params.tx.Confirmations,
@@ -384,16 +489,16 @@ func (s *scanner) handleBlock(blockHeight int64, existsLastBlockDB bool) error {
 			}
 		}
 
-		s.logger.Debugf("processed block %d in %s", blockHeight, time.Since(now))
+		s.logger.Debugf("processed block %d in %s", r.height, time.Since(now))
 
 		if existsLastBlockDB {
-			if err := s.bs.ProcessedBlocks().UpdateNumberWithHash(ctx, s.blockchain, blockHeight, blockHash, repos.WithTx(dbTx)); err != nil {
+			if err := s.bs.ProcessedBlocks().UpdateNumberWithHash(ctx, s.blockchain, r.height, r.blockHash, repos.WithTx(dbTx)); err != nil {
 				return fmt.Errorf("update block number: %w", err)
 			}
 
-			s.logger.Debugf("updated last block from explorer %s is %d", s.blockchain.String(), blockHeight)
+			s.logger.Debugf("updated last block from explorer %s is %d", s.blockchain.String(), r.height)
 		} else {
-			if err := s.bs.ProcessedBlocks().Create(ctx, s.blockchain, blockHeight, blockHash, repos.WithTx(dbTx)); err != nil {
+			if err := s.bs.ProcessedBlocks().Create(ctx, s.blockchain, r.height, r.blockHash, repos.WithTx(dbTx)); err != nil {
 				return fmt.Errorf("create block number: %w", err)
 			}
 		}
@@ -403,7 +508,7 @@ func (s *scanner) handleBlock(blockHeight int64, existsLastBlockDB bool) error {
 		return err
 	}
 
-	s.lastParsedBlockHeight.Store(blockHeight)
+	s.lastParsedBlockHeight.Store(r.height)
 
 	return nil
 }

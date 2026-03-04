@@ -9,7 +9,7 @@ type EScanner struct {
 }
 
 type Blockchain struct {
-	EScanner EScanner `yaml:"escanner"`
+	EScanner EScanner `yaml:"e_scanner"`
 
 	// Tron
 	Tron TronBlockchain

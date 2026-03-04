@@ -33,7 +33,6 @@ import (
 	"github.com/dv-net/dv-processing/pkg/walletsdk/tron"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 	blocksv2 "github.com/dv-net/dv-proto/gen/go/eproxy/blocks/v2"
-	incidentsv2 "github.com/dv-net/dv-proto/gen/go/eproxy/incidents/v2"
 	transactionsv2 "github.com/dv-net/dv-proto/gen/go/eproxy/transactions/v2"
 )
 
@@ -163,7 +162,7 @@ func (s *scanner) handleBlocks(ctx context.Context) error {
 	lag := lnBlock - lpBlock
 	var catchUpStart time.Time
 	var catchUpBlocksDone int64
-	if lag > int64(blocksInChunk) {
+	if lag > blocksInChunk {
 		catchUpStart = time.Now()
 		s.logger.Infof("catch-up started: lag=%d blocks (from=%d to=%d)", lag, lpBlock+1, lnBlock)
 	}
@@ -175,7 +174,7 @@ func (s *scanner) handleBlocks(ctx context.Context) error {
 
 		batchEnd := min(batchStart+blocksInChunk-1, lnBlock)
 
-		results, err := s.loadBlocks(batchStart, batchEnd)
+		results, err := s.loadBlocks(ctx, batchStart, batchEnd)
 		if err != nil {
 			return fmt.Errorf("load blocks [%d, %d]: %w", batchStart, batchEnd, err)
 		}
@@ -189,7 +188,7 @@ func (s *scanner) handleBlocks(ctx context.Context) error {
 		}
 
 		for _, r := range results {
-			if err := s.commitBlockResult(r, existsLastBlockDB); err != nil {
+			if err := s.commitBlockResult(ctx, r, existsLastBlockDB); err != nil {
 				return fmt.Errorf("commit block %d: %w", r.height, err)
 			}
 			existsLastBlockDB = true
@@ -231,7 +230,7 @@ type blockFetchResult struct {
 }
 
 // loadBlocks fetches a range of blocks in parallel (like evm LoadBlocks), preserving order.
-func (s *scanner) loadBlocks(from, to int64) ([]blockFetchResult, error) {
+func (s *scanner) loadBlocks(ctx context.Context, from, to int64) ([]blockFetchResult, error) {
 	size := int(to - from + 1)
 	results := make([]blockFetchResult, size)
 	errs := make([]error, size)
@@ -241,7 +240,7 @@ func (s *scanner) loadBlocks(from, to int64) ([]blockFetchResult, error) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			results[idx], errs[idx] = s.fetchBlockData(from + int64(idx))
+			results[idx], errs[idx] = s.fetchBlockData(ctx, from+int64(idx))
 		}(i)
 	}
 	wg.Wait()
@@ -301,8 +300,8 @@ func (cwp *createWebhookParams) IsTrxHotWalletDeposit() bool {
 }
 
 // fetchBlockData fetches all data for a single block via RPC (no DB operations).
-func (s *scanner) fetchBlockData(blockHeight int64) (blockFetchResult, error) { //nolint:funlen
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+func (s *scanner) fetchBlockData(ctx context.Context, blockHeight int64) (blockFetchResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
 	s.logger.Debugf("start fetching block %d", blockHeight)
@@ -392,8 +391,8 @@ func (s *scanner) fetchBlockData(blockHeight int64) (blockFetchResult, error) { 
 }
 
 // commitBlockResult writes a fetched block result to the database (must be called sequentially).
-func (s *scanner) commitBlockResult(r blockFetchResult, existsLastBlockDB bool) error { //nolint:funlen
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+func (s *scanner) commitBlockResult(ctx context.Context, r blockFetchResult, existsLastBlockDB bool) error {
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
 	now := time.Now()
@@ -588,56 +587,6 @@ func (s *scanner) checksForEvent(event *transactionsv2.Event) []eventCheck {
 	return checks
 }
 
-// checkForRollback checks if the next block's prevHash matches our stored hash
-func (s *scanner) checkForRollback(ctx context.Context, nextBlockHeight int64) error {
-	s.logger.Debugf("Checking rollback for block %d", nextBlockHeight)
-
-	// Get the next block to check prevHash consistency
-	block, err := s.bs.EProxy().BlocksClient().Get(ctx, connect.NewRequest(&blocksv2.GetRequest{
-		Blockchain: eproxy.ConvertBlockchain(s.blockchain),
-		Height:     uint64(nextBlockHeight), //nolint:gosec
-	}))
-	if err != nil {
-		// If we can't get the block, it might not exist yet OR there was a rollback
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
-			s.logger.Warnf("Block %d not found in explorer - checking for rollback incident", nextBlockHeight)
-			// Check incidents as fallback - the block might have been rolled back
-			return s.checkForIncidents(ctx)
-		}
-		return fmt.Errorf("get block for rollback check: %w", err)
-	}
-
-	// Get the previous block hash from the next block
-	nextBlockPrevHash := block.Msg.GetItem().GetPrevHash()
-	if nextBlockPrevHash == "" {
-		s.logger.Debugf("block %d has no prevHash, skipping rollback check", nextBlockHeight)
-		return nil
-	}
-
-	// Get stored block info from database
-	lastBlock, err := s.bs.ProcessedBlocks().LastBlock(ctx, s.blockchain)
-	if err != nil {
-		if errors.Is(err, storecmn.ErrNotFound) {
-			s.logger.Debugf("No stored block found, skipping rollback check")
-			return nil
-		}
-		return fmt.Errorf("get last processed block: %w", err)
-	}
-
-	s.logger.Debugf("Comparing hashes: stored=%s, next_block_prevHash=%s", lastBlock.Hash, nextBlockPrevHash)
-
-	// If we have a stored hash and the next block's prevHash doesn't match it, we have a rollback
-	if lastBlock.Hash != "" && lastBlock.Hash != nextBlockPrevHash {
-		s.logger.Warnf("Rollback detected! Stored hash %s != next block's prevHash %s for block %d",
-			lastBlock.Hash, nextBlockPrevHash, nextBlockHeight)
-
-		return s.handleRollback(ctx)
-	}
-
-	s.logger.Debugf("No rollback detected for block %d", nextBlockHeight)
-	return nil
-}
-
 // handleRollback handles blockchain rollback by getting the new starting point from incidents API
 func (s *scanner) handleRollback(ctx context.Context) error {
 	s.logger.Infof("Handling rollback incident for blockchain %s", s.blockchain.String())
@@ -675,123 +624,6 @@ func (s *scanner) handleRollback(ctx context.Context) error {
 		}
 
 		s.logger.Infof("Successfully handled rollback, stored block %d with hash %s, will restart parsing from block %d", rollbackBlockHeight, rollbackBlockHash, newStartingBlock)
-		return nil
-	})
-}
-
-// checkForIncidents checks for new rollback incidents and processes them
-func (s *scanner) checkForIncidents(ctx context.Context) error {
-	s.logger.Debugf("Checking for new rollback incidents")
-
-	// Get incidents from explorer
-	incidents, err := s.bs.EProxy().GetIncidents(ctx, s.blockchain, 10)
-	if err != nil {
-		s.logger.Debugf("Failed to get incidents: %v", err)
-		return nil // Don't fail scanner if we can't get incidents
-	}
-
-	if len(incidents) == 0 {
-		s.logger.Debugf("No incidents found")
-		return nil
-	}
-
-	// Check each incident
-	for _, incident := range incidents {
-		if incident.GetType() != incidentsv2.IncidentType_INCIDENT_TYPE_ROLLBACK {
-			continue
-		}
-
-		// Check if this incident was already processed
-		processed, err := s.bs.ProcessedIncidents().IsProcessed(ctx, s.blockchain, incident.GetId())
-		if err != nil {
-			return fmt.Errorf("check if incident processed: %w", err)
-		}
-
-		if processed {
-			s.logger.Debugf("Incident %s already processed, skipping", incident.GetId())
-			continue
-		}
-
-		// New incident found!
-		rollbackStartBlock := int64(incident.GetDataRollback().GetRevertToBlockHeight()) //nolint:gosec
-		currentBlock := s.lastParsedBlockHeight.Load()
-
-		// Check if we need to rollback
-		if currentBlock >= rollbackStartBlock { //nolint:nestif
-			s.logger.Warnf("New rollback incident detected: id=%s, current_block=%d, rollback_to=%d",
-				incident.GetId(), currentBlock, rollbackStartBlock-1)
-
-			// Mark incident as processing before handling
-			if err := s.bs.ProcessedIncidents().MarkAsProcessing(ctx,
-				s.blockchain,
-				incident.GetId(),
-				"rollback",
-				rollbackStartBlock,
-				currentBlock); err != nil {
-				s.logger.Errorf("Failed to mark incident as processing: %v", err)
-			}
-
-			// Handle the rollback
-			if err := s.handleRollbackWithIncident(ctx, incident); err != nil {
-				// Mark as failed
-				if markErr := s.bs.ProcessedIncidents().MarkAsFailed(ctx,
-					s.blockchain,
-					incident.GetId(),
-					err.Error()); markErr != nil {
-					s.logger.Errorf("Failed to mark incident as failed: %v", markErr)
-				}
-				return fmt.Errorf("handle rollback for incident %s: %w", incident.GetId(), err)
-			}
-
-			// Mark as completed
-			if err := s.bs.ProcessedIncidents().MarkAsCompleted(ctx, s.blockchain, incident.GetId()); err != nil {
-				s.logger.Errorf("Failed to mark incident as completed: %v", err)
-			}
-
-			s.logger.Infof("Successfully processed rollback incident %s", incident.GetId())
-			return nil // Process one incident at a time
-		}
-
-		s.logger.Debugf("Rollback incident %s not applicable: current_block=%d < rollback_start=%d",
-			incident.GetId(), currentBlock, rollbackStartBlock)
-	}
-
-	return nil
-}
-
-// handleRollbackWithIncident handles rollback using incident information
-func (s *scanner) handleRollbackWithIncident(ctx context.Context, incident *incidentsv2.Incident) error {
-	rollbackStartBlock := int64(incident.GetDataRollback().GetRevertToBlockHeight()) //nolint:gosec
-	rollbackBlockHeight := rollbackStartBlock - 1
-
-	s.logger.Infof("Processing rollback incident %s: rolling back to block %d", incident.GetId(), rollbackBlockHeight)
-
-	// Get the hash of the rollback target block
-	block, err := s.bs.EProxy().BlocksClient().Get(ctx, connect.NewRequest(&blocksv2.GetRequest{
-		Blockchain: eproxy.ConvertBlockchain(s.blockchain),
-		Height:     uint64(rollbackBlockHeight), //nolint:gosec
-	}))
-	if err != nil {
-		return fmt.Errorf("get rollback block hash: %w", err)
-	}
-
-	rollbackBlockHash := block.Msg.GetItem().GetHash()
-
-	// Update lastParsedBlockHeight
-	s.lastParsedBlockHeight.Store(rollbackBlockHeight)
-
-	// Update database
-	return pgx.BeginTxFunc(ctx, s.store.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
-		if err := s.bs.ProcessedBlocks().UpdateNumberWithHash(ctx,
-			s.blockchain,
-			rollbackBlockHeight,
-			rollbackBlockHash,
-			repos.WithTx(dbTx)); err != nil {
-			return fmt.Errorf("update processed block: %w", err)
-		}
-
-		s.logger.Infof("Rollback completed: stored block %d with hash %s, will resume from block %d",
-			rollbackBlockHeight, rollbackBlockHash, rollbackStartBlock)
 		return nil
 	})
 }

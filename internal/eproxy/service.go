@@ -261,12 +261,7 @@ func (s *Service) GetIncidents(ctx context.Context, blockchain wconstants.Blockc
 // It looks for a recent rollback incident (within rollbackIncidentMaxAge). If none is found,
 // it falls back to currentBlock - safeDepth, where safeDepth is blockchain-specific.
 func (s *Service) GetRollbackStartingBlock(ctx context.Context, blockchain wconstants.BlockchainType, currentBlock int64) (uint64, error) {
-	incidents, err := s.GetIncidents(ctx, blockchain, 10)
-	if err != nil {
-		// Incidents API unavailable — fall back to safe depth.
-		safeBlock := constants.RollbackFallbackBlock(blockchain, currentBlock)
-		return uint64(safeBlock), nil //nolint:gosec
-	}
+	incidents, _ := s.GetIncidents(ctx, blockchain, 10)
 
 	maxAge := constants.RollbackIncidentMaxAge()
 
@@ -282,7 +277,7 @@ func (s *Service) GetRollbackStartingBlock(ctx context.Context, blockchain wcons
 		return incident.GetDataRollback().GetRevertToBlockHeight(), nil
 	}
 
-	// No recent incident — fall back to safe depth per blockchain.
+	// No recent incident or API unavailable — fall back to safe depth per blockchain.
 	safeBlock := constants.RollbackFallbackBlock(blockchain, currentBlock)
 	return uint64(safeBlock), nil //nolint:gosec
 }

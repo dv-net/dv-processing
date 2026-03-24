@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/dv-net/dv-processing/internal/interceptors"
 
@@ -256,23 +257,34 @@ func (s *Service) GetIncidents(ctx context.Context, blockchain wconstants.Blockc
 	return incidents.Msg.GetItems(), nil
 }
 
-// GetRollbackStartingBlock returns the block height to start parsing from after a rollback incident
-func (s *Service) GetRollbackStartingBlock(ctx context.Context, blockchain wconstants.BlockchainType) (uint64, error) {
-	incidents, err := s.GetIncidents(ctx, blockchain, 1)
+// GetRollbackStartingBlock returns the block height to start parsing from after a rollback.
+// It looks for a recent rollback incident (within rollbackIncidentMaxAge). If none is found,
+// it falls back to currentBlock - safeDepth, where safeDepth is blockchain-specific.
+func (s *Service) GetRollbackStartingBlock(ctx context.Context, blockchain wconstants.BlockchainType, currentBlock int64) (uint64, error) {
+	incidents, err := s.GetIncidents(ctx, blockchain, 10)
 	if err != nil {
-		return 0, fmt.Errorf("get last incident for rollback recovery: %w", err)
+		// Incidents API unavailable — fall back to safe depth.
+		safeBlock := constants.RollbackFallbackBlock(blockchain, currentBlock)
+		return uint64(safeBlock), nil //nolint:gosec
 	}
 
-	if len(incidents) < 1 {
-		return 0, fmt.Errorf("no incidents found for blockchain %s", blockchain.String())
+	maxAge := constants.RollbackIncidentMaxAge()
+
+	for _, incident := range incidents {
+		if incident.GetType() != incidentsv2.IncidentType_INCIDENT_TYPE_ROLLBACK {
+			continue
+		}
+
+		if incident.GetCreatedAt() != nil && time.Since(incident.GetCreatedAt().AsTime()) > maxAge {
+			break // incidents are ordered newest-first; all further are older
+		}
+
+		return incident.GetDataRollback().GetRevertToBlockHeight(), nil
 	}
 
-	incident := incidents[0]
-	if incident.GetType() != incidentsv2.IncidentType_INCIDENT_TYPE_ROLLBACK {
-		return 0, fmt.Errorf("last incident is not a rollback incident for blockchain %s", blockchain.String())
-	}
-
-	return incident.GetDataRollback().GetRevertToBlockHeight(), nil
+	// No recent incident — fall back to safe depth per blockchain.
+	safeBlock := constants.RollbackFallbackBlock(blockchain, currentBlock)
+	return uint64(safeBlock), nil //nolint:gosec
 }
 
 type FindTransactionsParams struct {

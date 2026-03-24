@@ -591,7 +591,7 @@ func (s *scanner) checksForEvent(event *transactionsv2.Event) []eventCheck {
 func (s *scanner) handleRollback(ctx context.Context) error {
 	s.logger.Infof("Handling rollback incident for blockchain %s", s.blockchain.String())
 
-	newStartingBlock, err := s.bs.EProxy().GetRollbackStartingBlock(ctx, s.blockchain)
+	newStartingBlock, err := s.bs.EProxy().GetRollbackStartingBlock(ctx, s.blockchain, s.lastParsedBlockHeight.Load())
 	if err != nil {
 		return fmt.Errorf("get rollback starting block: %w", err)
 	}

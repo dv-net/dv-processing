@@ -42,6 +42,45 @@ func BlockchainTypeToPB(bt wconstants.BlockchainType) commonv1.Blockchain {
 	}
 }
 
+// rollbackSafeDepth is the number of blocks to roll back when no recent incident is found.
+// Used as a fallback when the last rollback incident is older than rollbackIncidentMaxAge.
+const rollbackIncidentMaxAge = 2 * time.Hour
+
+var rollbackSafeDepth = map[wconstants.BlockchainType]int64{
+	// Tron
+	wconstants.BlockchainTypeTron: 20,
+
+	// EVM
+	wconstants.BlockchainTypeEthereum:          12,
+	wconstants.BlockchainTypeBinanceSmartChain: 20,
+	wconstants.BlockchainTypePolygon:           128,
+	wconstants.BlockchainTypeArbitrum:          20,
+	wconstants.BlockchainTypeOptimism:          20,
+	wconstants.BlockchainTypeLinea:             20,
+
+	// BTC Like
+	wconstants.BlockchainTypeBitcoin:     6,
+	wconstants.BlockchainTypeLitecoin:    6,
+	wconstants.BlockchainTypeBitcoinCash: 6,
+	wconstants.BlockchainTypeDogecoin:    6,
+}
+
+// RollbackFallbackBlock returns the safe block to revert to when no recent incident is found.
+func RollbackFallbackBlock(blockchain wconstants.BlockchainType, currentBlock int64) int64 {
+	depth, ok := rollbackSafeDepth[blockchain]
+	if !ok {
+		depth = 20
+	}
+	safe := currentBlock - depth
+	if safe < 0 {
+		return 0
+	}
+	return safe
+}
+
+// RollbackIncidentMaxAge is the maximum age of a rollback incident to be considered relevant.
+func RollbackIncidentMaxAge() time.Duration { return rollbackIncidentMaxAge }
+
 var minConfirmations = map[wconstants.BlockchainType]uint64{
 	// Tron
 	wconstants.BlockchainTypeTron: 19,

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 
 ### Unreleased
 
+- docs: update Discord invite link in README [DV-4328]
+
 ### [0.9.10] - 2026-03-24
 - Added rollback support [DV-1943]
 - feat: redesign README.md [DV-4185]

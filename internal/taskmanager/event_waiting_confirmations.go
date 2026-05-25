@@ -76,8 +76,8 @@ func (s *WebhookWaitingConfirmationsWorker) verifyEVMDepositBalanceDelta(
 		return nil
 	}
 
-	expectedAmount, err := decimal.NewFromString(event.GetValue())
-	if err != nil || !expectedAmount.IsPositive() {
+	expectedAmount, _ := decimal.NewFromString(event.GetValue())
+	if !expectedAmount.IsPositive() {
 		return nil
 	}
 

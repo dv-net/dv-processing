@@ -106,7 +106,7 @@ require (
 	github.com/dv-net/xconfig v0.1.0
 )
 
-require github.com/dv-net/dv-proto v0.5.5
+require github.com/dv-net/dv-proto v0.5.6
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

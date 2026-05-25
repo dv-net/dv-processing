@@ -98,8 +98,8 @@ github.com/docker/go-connections v0.5.0 h1:USnMq7hx7gwdVZq1L49hLXaFtUdTADjXGp+uj
 github.com/docker/go-connections v0.5.0/go.mod h1:ov60Kzw0kKElRwhNs9UlUHAE/F9Fe6GLaXnqyDdmEXc=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
-github.com/dv-net/dv-proto v0.5.5 h1:BLFj3UfCVfX5Ywfdu5WyE2zvaw6WLekA4sRI7aXAhd0=
-github.com/dv-net/dv-proto v0.5.5/go.mod h1:ailyqFT8xw7byWr1++NoVjOpgqIm+n7Y49rwLRstbT8=
+github.com/dv-net/dv-proto v0.5.6 h1:IdzJXtPDfdrtBcFY/c2d6o9dzQZSdL+kCdNut0t0t60=
+github.com/dv-net/dv-proto v0.5.6/go.mod h1:ailyqFT8xw7byWr1++NoVjOpgqIm+n7Y49rwLRstbT8=
 github.com/dv-net/go-bip39 v1.1.1 h1:KRJwVNjgJPipMfwVN0qbAJG17fMu4BvjDD/tnP35ers=
 github.com/dv-net/go-bip39 v1.1.1/go.mod h1:zbcC/5LED0EfiNZdvDoLgcyl+9mfMH/bEQdxTn4hj/Q=
 github.com/dv-net/mx v0.1.1 h1:+Y02hBmGY2JRxUR/kHM+TPbs8863CVnxrYsukXDR8CI=

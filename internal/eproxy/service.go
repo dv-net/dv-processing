@@ -186,6 +186,50 @@ func (s *Service) AddressBalance(ctx context.Context, address, assetIdentifier s
 	return balance, nil
 }
 
+// AddressBalanceAt returns the balance of the address for the asset on the blockchain at a specific block number.
+func (s *Service) AddressBalanceAt(ctx context.Context, address, assetIdentifier string, blockchain wconstants.BlockchainType, blockNumber uint64) (decimal.Decimal, error) {
+	if address == "" {
+		return decimal.Zero, ErrAddressRequired
+	}
+
+	if assetIdentifier == "" {
+		return decimal.Zero, ErrAssetIdentifierRequired
+	}
+
+	if !blockchain.Valid() {
+		return decimal.Zero, fmt.Errorf("invalid blockchain type: %s", blockchain.String())
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
+	defer cancel()
+
+	var response *connect.Response[addressesv2.BalanceResponse]
+	if err := retry.New().Do(func() error {
+		var err error
+		response, err = s.eproxyClient.AddressesClient.Balance(
+			ctx, connect.NewRequest(&addressesv2.BalanceRequest{
+				Address:         address,
+				AssetIdentifier: assetIdentifier,
+				Blockchain:      ConvertBlockchain(blockchain),
+				BlockNumber:     &blockNumber,
+			}),
+		)
+		if err != nil && !strings.Contains(err.Error(), errConnectionResetByPeer) {
+			return fmt.Errorf("%w: %w", err, retry.ErrExit)
+		}
+		return err
+	}); err != nil {
+		return decimal.Decimal{}, err
+	}
+
+	balance, err := decimal.NewFromString(response.Msg.GetAmount())
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+
+	return balance, nil
+}
+
 // AssetDecimals returns the number of decimals for the asset on the blockchain
 func (s *Service) AssetDecimals(ctx context.Context, blockchain wconstants.BlockchainType, assetIdentifier string) (int64, error) {
 	if assetIdentifier == "" {

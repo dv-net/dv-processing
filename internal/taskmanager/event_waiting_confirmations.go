@@ -13,6 +13,7 @@ import (
 	"github.com/dv-net/mx/logger"
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
+	"github.com/shopspring/decimal"
 )
 
 const JobKindWebhookWaitingConfirmations = "waiting_confirmations"
@@ -64,6 +65,51 @@ func (s WebhookWaitingConfirmationsArgs) Validate() error {
 // Kind
 func (WebhookWaitingConfirmationsArgs) Kind() string { return JobKindWebhookWaitingConfirmations }
 
+func (s *WebhookWaitingConfirmationsWorker) verifyEVMDepositBalanceDelta(
+	ctx context.Context,
+	job *river.Job[WebhookWaitingConfirmationsArgs],
+	tx *transactionsv2.Transaction,
+	event *transactionsv2.Event,
+) error {
+	assetIdentifier := event.GetAssetIdentifier()
+	if assetIdentifier == "" {
+		return nil
+	}
+
+	expectedAmount, _ := decimal.NewFromString(event.GetValue())
+	if !expectedAmount.IsPositive() {
+		return nil
+	}
+
+	blockHeight := tx.GetBlockHeight()
+	if blockHeight == 0 {
+		return nil
+	}
+
+	balanceBefore, err := s.bs.EProxy().AddressBalanceAt(ctx, job.Args.Address, assetIdentifier, job.Args.Blockchain, blockHeight-1)
+	if err != nil {
+		return fmt.Errorf("get balance before deposit block %d: %w", blockHeight-1, err)
+	}
+
+	balanceAfter, err := s.bs.EProxy().AddressBalanceAt(ctx, job.Args.Address, assetIdentifier, job.Args.Blockchain, blockHeight)
+	if err != nil {
+		return fmt.Errorf("get balance after deposit block %d: %w", blockHeight, err)
+	}
+
+	s.logger.Debugf("deposit balance delta raw: address=%s asset=%s block=%d before=%s after=%s expected=%s",
+		job.Args.Address, assetIdentifier, blockHeight, balanceBefore.String(), balanceAfter.String(), expectedAmount.String())
+
+	delta := balanceAfter.Sub(balanceBefore)
+	if delta.LessThan(expectedAmount) {
+		return fmt.Errorf("deposit balance delta mismatch: address=%s asset=%s block=%d expected=%s actual_delta=%s",
+			job.Args.Address, assetIdentifier, blockHeight, expectedAmount.String(), delta.String())
+	}
+	s.logger.Debugf("deposit balance delta verified: address=%s asset=%s block=%d expected=%s actual_delta=%s",
+		job.Args.Address, assetIdentifier, blockHeight, expectedAmount.String(), delta.String())
+
+	return nil
+}
+
 type WebhookWaitingConfirmationsWorker struct {
 	logger logger.Logger
 	river.WorkerDefaults[WebhookWaitingConfirmationsArgs]
@@ -103,6 +149,12 @@ func (s *WebhookWaitingConfirmationsWorker) Work(ctx context.Context, job *river
 	confirmationsTimeout := constants.ConfirmationsTimeout(job.Args.Blockchain, tx.Confirmations)
 	if confirmationsTimeout > 0 {
 		return river.JobSnooze(confirmationsTimeout)
+	}
+
+	if job.Args.Blockchain.IsEVM() && job.Args.WebhookKind == models.WebhookKindDeposit {
+		if err := s.verifyEVMDepositBalanceDelta(ctx, job, tx, event); err != nil {
+			return err
+		}
 	}
 
 	transactionData := webhooks.TransactionData{

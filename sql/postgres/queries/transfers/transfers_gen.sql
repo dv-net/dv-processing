@@ -5,4 +5,3 @@ INSERT INTO transfers (status, client_id, owner_id, request_id, blockchain, from
 
 -- name: GetByID :one
 SELECT * FROM transfers WHERE id=$1 LIMIT 1;
-

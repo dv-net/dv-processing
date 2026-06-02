@@ -49,7 +49,7 @@ func (q *Queries) Create(ctx context.Context, arg CreateParams) (*models.Setting
 const update = `-- name: Update :one
 UPDATE settings
 	SET model_id=$1, model_type=$2, name=$3, value=$4, updated_at=$5
-	WHERE id=$6
+WHERE id=$6
 	RETURNING id, model_id, model_type, name, value, created_at, updated_at
 `
 

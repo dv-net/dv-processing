@@ -23,7 +23,7 @@ func (q *Queries) ActivateWallet(ctx context.Context, blockchain wconstants.Bloc
 }
 
 const findEVMByExternalID = `-- name: FindEVMByExternalID :many
-select id, blockchain, address, owner_id, external_wallet_id, sequence, is_activated, is_active, is_dirty, created_at, updated_at from hot_wallets where external_wallet_id = $1 and blockchain in (select unnest($2::text[])) and owner_id = $3 and is_active = true order by sequence desc limit 1
+select id, blockchain, address, owner_id, external_wallet_id, sequence, is_activated, is_active, is_dirty, created_at, updated_at from hot_wallets where external_wallet_id = $1 and blockchain in (select unnest($2::text[])) and owner_id = $3 and is_active = true and is_dirty = false order by sequence desc limit 1
 `
 
 func (q *Queries) FindEVMByExternalID(ctx context.Context, externalWalletID string, column2 []string, ownerID uuid.UUID) ([]*models.HotWallet, error) {

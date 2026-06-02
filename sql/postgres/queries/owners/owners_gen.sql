@@ -11,4 +11,3 @@ SELECT * FROM owners;
 
 -- name: GetByID :one
 SELECT * FROM owners WHERE id=$1 LIMIT 1;
-

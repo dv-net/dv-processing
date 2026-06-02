@@ -45,8 +45,7 @@ grpcui:
 	grpcui --plaintext localhost:9000
 
 gensql:
-	@pgxgen crud
-	@pgxgen sqlc generate
+	@pgxgen generate
 
 genproto:
 	@buf lint

@@ -5,4 +5,3 @@ INSERT INTO hot_wallets (blockchain, address, owner_id, external_wallet_id, sequ
 
 -- name: Exist :one
 SELECT EXISTS (SELECT 1 FROM hot_wallets WHERE address=$1 AND blockchain=$2 AND owner_id=$3 LIMIT 1)::boolean;
-

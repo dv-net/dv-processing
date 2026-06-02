@@ -11,4 +11,3 @@ SELECT * FROM clients;
 
 -- name: GetByID :one
 SELECT * FROM clients WHERE id=$1 LIMIT 1;
-

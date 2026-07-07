@@ -3,6 +3,7 @@ package taskmanager
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/models"
@@ -15,6 +16,16 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/shopspring/decimal"
 )
+
+// historicalStateUnavailableSubstr matches the error returned by non-archive EVM
+// nodes when asked for account state at a pruned block height. It reflects a node
+// data-availability limitation, not evidence of a balance mismatch, so it must not
+// block deposit webhook creation the way a real delta mismatch does.
+const historicalStateUnavailableSubstr = "historical state"
+
+func isHistoricalStateUnavailableErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), historicalStateUnavailableSubstr)
+}
 
 const JobKindWebhookWaitingConfirmations = "waiting_confirmations"
 
@@ -88,11 +99,21 @@ func (s *WebhookWaitingConfirmationsWorker) verifyEVMDepositBalanceDelta(
 
 	balanceBefore, err := s.bs.EProxy().AddressBalanceAt(ctx, job.Args.Address, assetIdentifier, job.Args.Blockchain, blockHeight-1)
 	if err != nil {
+		if isHistoricalStateUnavailableErr(err) {
+			s.logger.Warnf("skip deposit balance delta verification: historical state unavailable: address=%s asset=%s block=%d: %s",
+				job.Args.Address, assetIdentifier, blockHeight-1, err.Error())
+			return nil
+		}
 		return fmt.Errorf("get balance before deposit block %d: %w", blockHeight-1, err)
 	}
 
 	balanceAfter, err := s.bs.EProxy().AddressBalanceAt(ctx, job.Args.Address, assetIdentifier, job.Args.Blockchain, blockHeight)
 	if err != nil {
+		if isHistoricalStateUnavailableErr(err) {
+			s.logger.Warnf("skip deposit balance delta verification: historical state unavailable: address=%s asset=%s block=%d: %s",
+				job.Args.Address, assetIdentifier, blockHeight, err.Error())
+			return nil
+		}
 		return fmt.Errorf("get balance after deposit block %d: %w", blockHeight, err)
 	}
 

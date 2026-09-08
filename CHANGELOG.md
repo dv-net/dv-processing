@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
+- fix: fail tron transfers whose broadcast tx never lands on-chain instead of snoozing forever in confirmation steps
 
 ### [0.9.11] - 2026-07-07
 - feat: handle historical state unavailability in deposit balance verify

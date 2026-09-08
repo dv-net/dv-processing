@@ -107,7 +107,7 @@ func (s *FSM) checkTransactionConfirmations(ctx context.Context, transferTx *mod
 	tx, err := s.bs.EProxy().GetTransactionInfo(ctx, wconstants.BlockchainTypeTron, transferTx.TxHash)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return workflow.NoConsoleError(river.JobSnooze(time.Second))
+			return s.handleTxNotFound(ctx, transferTx)
 		}
 
 		return fmt.Errorf("get transaction info: %w", err)
@@ -137,6 +137,31 @@ func (s *FSM) checkTransactionConfirmations(ctx context.Context, transferTx *mod
 	}
 
 	return nil
+}
+
+func (s *FSM) handleTxNotFound(ctx context.Context, transferTx *models.TransferTransaction) error {
+	if transferTx.CreatedAt.Valid && time.Since(transferTx.CreatedAt.Time) > txNotFoundTimeout {
+		elapsed := time.Since(transferTx.CreatedAt.Time).Round(time.Second)
+
+		s.logger.Warnw(
+			"tron transaction lost after broadcast",
+			"tx_hash", transferTx.TxHash,
+			"transfer_id", s.transfer.ID,
+			"step", s.wf.CurrentStep().Name,
+			"elapsed", elapsed.String(),
+		)
+
+		if err := s.st.TransferTransactions().UpdateStatus(ctx, transferTx.ID, models.TransferTransactionsStatusFailed); err != nil {
+			return fmt.Errorf("update system transaction status: %w", err)
+		}
+
+		return newErrorFailedTransfer(
+			fmt.Errorf("transaction %s not found on-chain %s after broadcast", transferTx.TxHash, elapsed),
+			s.wf.CurrentStep().Name, s.wf.CurrentStage().Name,
+		)
+	}
+
+	return workflow.NoConsoleError(river.JobSnooze(time.Second))
 }
 
 // getBalance returns the balance of the address.

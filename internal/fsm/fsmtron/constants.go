@@ -67,4 +67,6 @@ const (
 	DurationTimeResourceDelegation = 120 * time.Second
 )
 
+const txNotFoundTimeout = 5 * time.Minute
+
 var resourcesToDelegate = []core.ResourceCode{core.ResourceCode_ENERGY, core.ResourceCode_BANDWIDTH}

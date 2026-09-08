@@ -45,7 +45,7 @@ func (s *FSM) ensureTxInBlockchain(ctx context.Context, transferTx *models.Trans
 	tx, err := s.bs.EProxy().GetTransactionInfo(ctx, wconstants.BlockchainTypeTron, transferTx.TxHash)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return workflow.NoConsoleError(river.JobSnooze(time.Second))
+			return s.handleTxNotFound(ctx, transferTx)
 		}
 
 		return fmt.Errorf("get transaction info: %w", err)

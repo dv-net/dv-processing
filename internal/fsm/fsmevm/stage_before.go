@@ -201,8 +201,7 @@ func (s *FSM) sendBaseAssetForBurn(ctx context.Context, wf *workflow.Workflow, _
 		return fmt.Errorf("get wallet creds: %w", err)
 	}
 
-	// use the estimate for this native funding transfer, not the ERC-20 one
-	_, sendStateData, err := s.sendBaseAsset(ctx, wcreds, s.transfer.GetFromAddress(), needFeeBaseAssetAmount, estimateSendBaseAssetResult)
+	_, sendStateData, err := s.sendBaseAsset(ctx, wcreds, s.transfer.GetFromAddress(), needFeeBaseAssetAmount, estimateResult)
 	if err != nil {
 		return fmt.Errorf("send %s: %w", s.evm.Blockchain().GetAssetIdentifier(), err)
 	}

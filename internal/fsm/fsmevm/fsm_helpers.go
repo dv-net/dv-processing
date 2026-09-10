@@ -305,13 +305,19 @@ func (s *FSM) sendBaseAsset(ctx context.Context, wCreds *walletCreds, toAddress 
 		return nil, nil, err
 	}
 
-	// Size the gas limit from the on-chain estimate: a plain EOA needs only the
-	// intrinsic cost, but a contract or an EIP-7702-delegated recipient runs code
-	// on receive and needs more. EstimateGasAmount already carries the padded
-	// estimate and is never below the intrinsic base, but floor it defensively.
+	// A plain EOA recipient needs only the intrinsic transfer cost. A recipient
+	// that runs code on receive — a contract, or an EOA with an EIP-7702
+	// delegation — needs more, so size the limit from the estimate (which for a
+	// native transfer is already padded and never below the intrinsic base).
+	// Only bump when the recipient actually has code, so gas funding transfers to
+	// our own wallets keep the tight intrinsic limit.
 	gasLimit := evm.GasLimitByBlockchain(s.evm.Blockchain())
-	if estimated := estimateResult.EstimateGasAmount; estimated.IsPositive() {
-		if g := estimated.BigInt().Uint64(); g > gasLimit {
+	recipientCode, err := s.evm.Node().CodeAt(ctx, common.HexToAddress(toAddress), nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get recipient code: %w", err)
+	}
+	if len(recipientCode) > 0 {
+		if g := estimateResult.EstimateGasAmount.BigInt().Uint64(); g > gasLimit {
 			gasLimit = g
 		}
 	}

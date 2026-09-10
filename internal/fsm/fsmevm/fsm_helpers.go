@@ -305,7 +305,16 @@ func (s *FSM) sendBaseAsset(ctx context.Context, wCreds *walletCreds, toAddress 
 		return nil, nil, err
 	}
 
+	// Size the gas limit from the on-chain estimate: a plain EOA needs only the
+	// intrinsic cost, but a contract or an EIP-7702-delegated recipient runs code
+	// on receive and needs more. EstimateGasAmount already carries the padded
+	// estimate and is never below the intrinsic base, but floor it defensively.
 	gasLimit := evm.GasLimitByBlockchain(s.evm.Blockchain())
+	if estimated := estimateResult.EstimateGasAmount; estimated.IsPositive() {
+		if g := estimated.BigInt().Uint64(); g > gasLimit {
+			gasLimit = g
+		}
+	}
 
 	s.logger.Infow(
 		s.stringForBaseAsset("sending %s"),

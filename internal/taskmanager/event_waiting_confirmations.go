@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dv-net/dv-processing/internal/constants"
+	"github.com/dv-net/dv-processing/internal/eproxy"
 	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/internal/services/baseservices"
 	"github.com/dv-net/dv-processing/internal/services/webhooks"
@@ -120,15 +121,79 @@ func (s *WebhookWaitingConfirmationsWorker) verifyEVMDepositBalanceDelta(
 	s.logger.Debugf("deposit balance delta raw: address=%s asset=%s block=%d before=%s after=%s expected=%s",
 		job.Args.Address, assetIdentifier, blockHeight, balanceBefore.String(), balanceAfter.String(), expectedAmount.String())
 
+	// balanceAfter-balanceBefore is only the *net* change of the address over the
+	// whole block. When the net change already covers the deposit we are done.
 	delta := balanceAfter.Sub(balanceBefore)
-	if delta.LessThan(expectedAmount) {
-		return fmt.Errorf("deposit balance delta mismatch: address=%s asset=%s block=%d expected=%s actual_delta=%s",
+	if delta.GreaterThanOrEqual(expectedAmount) {
+		s.logger.Debugf("deposit balance delta verified: address=%s asset=%s block=%d expected=%s net_delta=%s",
 			job.Args.Address, assetIdentifier, blockHeight, expectedAmount.String(), delta.String())
+		return nil
 	}
-	s.logger.Debugf("deposit balance delta verified: address=%s asset=%s block=%d expected=%s actual_delta=%s",
-		job.Args.Address, assetIdentifier, blockHeight, expectedAmount.String(), delta.String())
+
+	// The net change falls short. That does not mean the deposit is fake: if the
+	// address also spent this asset in the same block (routine for hot wallets and
+	// auto-forwarded deposits) the net change is smaller than the deposit. For a
+	// genuine deposit delta = expected + other_inflows - outflows, so
+	// delta + outflows >= expected must hold. Add this asset's same-block outflows
+	// from the address back before deciding.
+	outflows, err := s.sumBlockAssetOutflows(ctx, job.Args.Blockchain, blockHeight, job.Args.Address, assetIdentifier)
+	if err != nil {
+		s.logger.Warnf("skip deposit balance delta verification: cannot load block %d outflows: address=%s asset=%s: %s",
+			blockHeight, job.Args.Address, assetIdentifier, err.Error())
+		return nil
+	}
+
+	adjustedDelta := delta.Add(outflows)
+	if adjustedDelta.LessThan(expectedAmount) {
+		return fmt.Errorf("deposit balance delta mismatch: address=%s asset=%s block=%d expected=%s net_delta=%s block_outflows=%s adjusted_delta=%s",
+			job.Args.Address, assetIdentifier, blockHeight, expectedAmount.String(), delta.String(), outflows.String(), adjustedDelta.String())
+	}
+
+	s.logger.Debugf("deposit balance delta verified (outflow-adjusted): address=%s asset=%s block=%d expected=%s net_delta=%s block_outflows=%s",
+		job.Args.Address, assetIdentifier, blockHeight, expectedAmount.String(), delta.String(), outflows.String())
 
 	return nil
+}
+
+// sumBlockAssetOutflows totals the amount of assetIdentifier sent out of address
+// by successful transfer events in the given block.
+func (s *WebhookWaitingConfirmationsWorker) sumBlockAssetOutflows(
+	ctx context.Context,
+	blockchain wconstants.BlockchainType,
+	blockHeight uint64,
+	address, assetIdentifier string,
+) (decimal.Decimal, error) {
+	txs, err := s.bs.EProxy().FindTransactions(ctx, blockchain, eproxy.FindTransactionsParams{
+		BlockHeight: &blockHeight,
+	})
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("find block transactions: %w", err)
+	}
+
+	total := decimal.Zero
+	for _, tx := range txs {
+		for _, ev := range tx.GetEvents() {
+			if ev.Type == nil || *ev.Type != transactionsv2.EventType_EVENT_TYPE_TRANSFER {
+				continue
+			}
+			if ev.Status != nil && *ev.Status != transactionsv2.EventStatus_EVENT_STATUS_SUCCESS {
+				continue
+			}
+			if ev.AddressFrom == nil || !strings.EqualFold(*ev.AddressFrom, address) {
+				continue
+			}
+			if !strings.EqualFold(ev.GetAssetIdentifier(), assetIdentifier) {
+				continue
+			}
+			amount, err := decimal.NewFromString(ev.GetValue())
+			if err != nil || !amount.IsPositive() {
+				continue
+			}
+			total = total.Add(amount)
+		}
+	}
+
+	return total, nil
 }
 
 type WebhookWaitingConfirmationsWorker struct {

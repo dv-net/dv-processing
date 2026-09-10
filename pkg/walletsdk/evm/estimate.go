@@ -61,11 +61,22 @@ func (s *EVM) estimateNativeAssetGas(ctx context.Context, fromAddress, toAddress
 		return decimal.Zero, fmt.Errorf("failed to estimate gas for eth: %w", err)
 	}
 
-	// Use the actual gas limit that will be used in transaction
+	// Intrinsic cost of a plain value transfer between EOAs.
 	gasLimit := GasLimitByBlockchain(s.config.Blockchain)
 
+	// A higher estimate means the recipient executes code on receive (a contract,
+	// or an EOA with an EIP-7702 delegation). Pad it, since that execution is
+	// state-dependent, and reject clearly abnormal values instead of broadcasting
+	// a transaction that overpays or reverts with "out of gas".
 	if estimatedGas > gasLimit {
-		return decimal.NewFromUint64(estimatedGas), nil
+		buffered := decimal.NewFromUint64(estimatedGas).Mul(decimal.NewFromFloat(NativeTransferGasBuffer)).Ceil()
+		if buffered.GreaterThan(decimal.NewFromInt(MaxGasLimit)) {
+			return decimal.Zero, fmt.Errorf(
+				"estimated gas %d for native transfer to %s exceeds max %d: recipient is likely not a plain payable address",
+				estimatedGas, toAddress, MaxGasLimit,
+			)
+		}
+		return buffered, nil
 	}
 	return decimal.NewFromUint64(gasLimit), nil
 }

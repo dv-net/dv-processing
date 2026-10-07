@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 - refactor: clean up SQL files and improve query consistency by
 - feat: add EVM deposit balance delta verification and address balance 
 
+- docs: update Discord invite link in README [DV-4328]
+
 ### [0.9.10] - 2026-03-24
 - Added rollback support [DV-1943]
 - feat: redesign README.md [DV-4185]

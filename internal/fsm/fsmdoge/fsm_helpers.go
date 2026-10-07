@@ -168,3 +168,69 @@ func (s *FSM) setTransferStatus(ctx context.Context, status constants.TransferSt
 
 	return nil
 }
+
+// addOutputsAndFee adds the recipient output and, for a transfer with amount, the change output
+// back to the sender address. The fee is subtracted from the change output, or from the recipient
+// output for a whole amount transfer.
+func (s *FSM) addOutputsAndFee(
+	newTx *doge.TxBuilder,
+	toAddress string,
+	transferAmount, amountRemaining, feePerByte decimal.Decimal,
+) (doge.CalculateTxSizeData, error) {
+	var txSizeData doge.CalculateTxSizeData
+	var err error
+
+	if !s.transfer.WholeAmount && transferAmount.LessThan(dustThreshold) {
+		return txSizeData, fmt.Errorf("transfer amount %s is less than dust threshold %s", transferAmount.String(), dustThreshold.String())
+	}
+
+	// set output
+	if err := newTx.AddOutput(toAddress, transferAmount); err != nil {
+		return txSizeData, fmt.Errorf("add transaction output for address %s: %w", toAddress, err)
+	}
+
+	// For a transfer with amount the remaining amount is sent back to the sender address
+	// and the fee is paid from it, so the recipient receives exactly the requested amount.
+	feeOutputIdx := 0
+	if !s.transfer.WholeAmount {
+		if err := newTx.AddOutput(s.transfer.FromAddresses[0], amountRemaining); err != nil {
+			return txSizeData, fmt.Errorf("add change output for address %s: %w", s.transfer.FromAddresses[0], err)
+		}
+
+		feeOutputIdx = 1
+	}
+
+	// emulate transaction and calculate fee
+	txSizeData, err = newTx.EmulateTxSize(feePerByte)
+	if err != nil {
+		return txSizeData, fmt.Errorf("emulate transaction size: %w", err)
+	}
+
+	// Change after the fee would be a dust output rejected by the network,
+	// so drop it and leave the whole remaining amount as the fee.
+	if !s.transfer.WholeAmount && amountRemaining.Sub(txSizeData.TotalFee).LessThan(dustThreshold) {
+		newTx.MsgTx().TxOut = newTx.MsgTx().TxOut[:1]
+		feeOutputIdx = -1
+
+		txSizeData, err = newTx.EmulateTxSize(feePerByte)
+		if err != nil {
+			return txSizeData, fmt.Errorf("emulate transaction size without change: %w", err)
+		}
+
+		if amountRemaining.LessThan(txSizeData.TotalFee) {
+			return txSizeData, fmt.Errorf(
+				"insufficient funds for fee: remaining %s, fee %s",
+				amountRemaining.String(), txSizeData.TotalFee.String(),
+			)
+		}
+
+		txSizeData.TotalFee = amountRemaining
+	}
+
+	// set fee to the original transaction
+	if feeOutputIdx >= 0 {
+		newTx.MsgTx().TxOut[feeOutputIdx].Value -= txSizeData.TotalFee.IntPart()
+	}
+
+	return txSizeData, nil
+}

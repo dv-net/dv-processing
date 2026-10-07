@@ -7,6 +7,10 @@ import (
 
 var assetDecimals = decimal.NewFromInt(btc.AssetDecimals)
 
+// dustThreshold is the minimum output value in base units accepted by the network.
+// P2PKH dust threshold at the default dust relay fee (3 sat/vB); covers all address types.
+var dustThreshold = decimal.NewFromInt(546)
+
 const (
 	stageBeforeSending = "before_sending"
 	stageSending       = "sending"

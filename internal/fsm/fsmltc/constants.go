@@ -7,6 +7,10 @@ import (
 
 var assetDecimals = decimal.NewFromInt(ltc.AssetDecimals)
 
+// dustThreshold is the minimum output value in base units accepted by the network.
+// P2PKH dust threshold at the Litecoin Core default dust relay fee (30 litoshi/vB).
+var dustThreshold = decimal.NewFromInt(5460)
+
 const (
 	stageBeforeSending = "before_sending"
 	stageSending       = "sending"

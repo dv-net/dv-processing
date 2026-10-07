@@ -38,6 +38,11 @@ const (
 	// TransferServiceGetByRequestIDProcedure is the fully-qualified name of the TransferService's
 	// GetByRequestID RPC.
 	TransferServiceGetByRequestIDProcedure = "/processing.transfer.v1.TransferService/GetByRequestID"
+	// TransferServiceCancelProcedure is the fully-qualified name of the TransferService's Cancel RPC.
+	TransferServiceCancelProcedure = "/processing.transfer.v1.TransferService/Cancel"
+	// TransferServiceExecuteNowProcedure is the fully-qualified name of the TransferService's
+	// ExecuteNow RPC.
+	TransferServiceExecuteNowProcedure = "/processing.transfer.v1.TransferService/ExecuteNow"
 )
 
 // TransferServiceClient is a client for the processing.transfer.v1.TransferService service.
@@ -46,6 +51,10 @@ type TransferServiceClient interface {
 	Create(context.Context, *connect.Request[v1.CreateRequest]) (*connect.Response[v1.CreateResponse], error)
 	// Get transfer by request ID
 	GetByRequestID(context.Context, *connect.Request[v1.GetByRequestIDRequest]) (*connect.Response[v1.GetByRequestIDResponse], error)
+	// Cancel a scheduled transfer before its execute_after is reached
+	Cancel(context.Context, *connect.Request[v1.CancelRequest]) (*connect.Response[v1.CancelResponse], error)
+	// Execute a scheduled transfer immediately, confirmed by owner's TOTP
+	ExecuteNow(context.Context, *connect.Request[v1.ExecuteNowRequest]) (*connect.Response[v1.ExecuteNowResponse], error)
 }
 
 // NewTransferServiceClient constructs a client for the processing.transfer.v1.TransferService
@@ -71,6 +80,18 @@ func NewTransferServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(transferServiceMethods.ByName("GetByRequestID")),
 			connect.WithClientOptions(opts...),
 		),
+		cancel: connect.NewClient[v1.CancelRequest, v1.CancelResponse](
+			httpClient,
+			baseURL+TransferServiceCancelProcedure,
+			connect.WithSchema(transferServiceMethods.ByName("Cancel")),
+			connect.WithClientOptions(opts...),
+		),
+		executeNow: connect.NewClient[v1.ExecuteNowRequest, v1.ExecuteNowResponse](
+			httpClient,
+			baseURL+TransferServiceExecuteNowProcedure,
+			connect.WithSchema(transferServiceMethods.ByName("ExecuteNow")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -78,6 +99,8 @@ func NewTransferServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 type transferServiceClient struct {
 	create         *connect.Client[v1.CreateRequest, v1.CreateResponse]
 	getByRequestID *connect.Client[v1.GetByRequestIDRequest, v1.GetByRequestIDResponse]
+	cancel         *connect.Client[v1.CancelRequest, v1.CancelResponse]
+	executeNow     *connect.Client[v1.ExecuteNowRequest, v1.ExecuteNowResponse]
 }
 
 // Create calls processing.transfer.v1.TransferService.Create.
@@ -90,6 +113,16 @@ func (c *transferServiceClient) GetByRequestID(ctx context.Context, req *connect
 	return c.getByRequestID.CallUnary(ctx, req)
 }
 
+// Cancel calls processing.transfer.v1.TransferService.Cancel.
+func (c *transferServiceClient) Cancel(ctx context.Context, req *connect.Request[v1.CancelRequest]) (*connect.Response[v1.CancelResponse], error) {
+	return c.cancel.CallUnary(ctx, req)
+}
+
+// ExecuteNow calls processing.transfer.v1.TransferService.ExecuteNow.
+func (c *transferServiceClient) ExecuteNow(ctx context.Context, req *connect.Request[v1.ExecuteNowRequest]) (*connect.Response[v1.ExecuteNowResponse], error) {
+	return c.executeNow.CallUnary(ctx, req)
+}
+
 // TransferServiceHandler is an implementation of the processing.transfer.v1.TransferService
 // service.
 type TransferServiceHandler interface {
@@ -97,6 +130,10 @@ type TransferServiceHandler interface {
 	Create(context.Context, *connect.Request[v1.CreateRequest]) (*connect.Response[v1.CreateResponse], error)
 	// Get transfer by request ID
 	GetByRequestID(context.Context, *connect.Request[v1.GetByRequestIDRequest]) (*connect.Response[v1.GetByRequestIDResponse], error)
+	// Cancel a scheduled transfer before its execute_after is reached
+	Cancel(context.Context, *connect.Request[v1.CancelRequest]) (*connect.Response[v1.CancelResponse], error)
+	// Execute a scheduled transfer immediately, confirmed by owner's TOTP
+	ExecuteNow(context.Context, *connect.Request[v1.ExecuteNowRequest]) (*connect.Response[v1.ExecuteNowResponse], error)
 }
 
 // NewTransferServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -118,12 +155,28 @@ func NewTransferServiceHandler(svc TransferServiceHandler, opts ...connect.Handl
 		connect.WithSchema(transferServiceMethods.ByName("GetByRequestID")),
 		connect.WithHandlerOptions(opts...),
 	)
+	transferServiceCancelHandler := connect.NewUnaryHandler(
+		TransferServiceCancelProcedure,
+		svc.Cancel,
+		connect.WithSchema(transferServiceMethods.ByName("Cancel")),
+		connect.WithHandlerOptions(opts...),
+	)
+	transferServiceExecuteNowHandler := connect.NewUnaryHandler(
+		TransferServiceExecuteNowProcedure,
+		svc.ExecuteNow,
+		connect.WithSchema(transferServiceMethods.ByName("ExecuteNow")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/processing.transfer.v1.TransferService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TransferServiceCreateProcedure:
 			transferServiceCreateHandler.ServeHTTP(w, r)
 		case TransferServiceGetByRequestIDProcedure:
 			transferServiceGetByRequestIDHandler.ServeHTTP(w, r)
+		case TransferServiceCancelProcedure:
+			transferServiceCancelHandler.ServeHTTP(w, r)
+		case TransferServiceExecuteNowProcedure:
+			transferServiceExecuteNowHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -139,4 +192,12 @@ func (UnimplementedTransferServiceHandler) Create(context.Context, *connect.Requ
 
 func (UnimplementedTransferServiceHandler) GetByRequestID(context.Context, *connect.Request[v1.GetByRequestIDRequest]) (*connect.Response[v1.GetByRequestIDResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("processing.transfer.v1.TransferService.GetByRequestID is not implemented"))
+}
+
+func (UnimplementedTransferServiceHandler) Cancel(context.Context, *connect.Request[v1.CancelRequest]) (*connect.Response[v1.CancelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("processing.transfer.v1.TransferService.Cancel is not implemented"))
+}
+
+func (UnimplementedTransferServiceHandler) ExecuteNow(context.Context, *connect.Request[v1.ExecuteNowRequest]) (*connect.Response[v1.ExecuteNowResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("processing.transfer.v1.TransferService.ExecuteNow is not implemented"))
 }

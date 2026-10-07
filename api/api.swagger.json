@@ -6,19 +6,24 @@
   },
   "tags": [
     {
-      "name": "ClientService"
+      "name": "ClientService",
+      "description": "Service which interacts with client"
     },
     {
-      "name": "OwnerService"
+      "name": "OwnerService",
+      "description": "Service which interacts with owner"
     },
     {
-      "name": "SystemService"
+      "name": "SystemService",
+      "description": "Service which provides system information"
     },
     {
-      "name": "TransferService"
+      "name": "TransferService",
+      "description": "Service which interacts with transfers"
     },
     {
-      "name": "WalletService"
+      "name": "WalletService",
+      "description": "Service which interacts with wallets"
     }
   ],
   "consumes": [
@@ -523,6 +528,39 @@
         ]
       }
     },
+    "/processing.transfer.v1.TransferService/Cancel": {
+      "post": {
+        "summary": "Cancel a scheduled transfer before its execute_after is reached",
+        "operationId": "TransferService_Cancel",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.CancelResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.CancelRequest"
+            }
+          }
+        ],
+        "tags": [
+          "TransferService"
+        ]
+      }
+    },
     "/processing.transfer.v1.TransferService/Create": {
       "post": {
         "summary": "Create a new transfer",
@@ -548,6 +586,39 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/processing.transfer.v1.CreateRequest"
+            }
+          }
+        ],
+        "tags": [
+          "TransferService"
+        ]
+      }
+    },
+    "/processing.transfer.v1.TransferService/ExecuteNow": {
+      "post": {
+        "summary": "Execute a scheduled transfer immediately, confirmed by owner's TOTP",
+        "operationId": "TransferService_ExecuteNow",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.ExecuteNowResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/processing.transfer.v1.ExecuteNowRequest"
             }
           }
         ],
@@ -804,7 +875,7 @@
         "NULL_VALUE"
       ],
       "default": "NULL_VALUE",
-      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+      "description": "Represents a JSON `null`.\n\n`NullValue` is a sentinel, using an enum with only one value to represent\nthe null value for the `Value` type union.\n\nA field of type `NullValue` with any value other than `0` is considered\ninvalid. Most ProtoJSON serializers will emit a Value with a `null_value` set\nas a JSON `null` regardless of the integer value, and so will round trip to\na `0` value.\n\n - NULL_VALUE: Null value."
     },
     "google.rpc.Status": {
       "type": "object",
@@ -896,7 +967,7 @@
         "BITCOIN_ADDRESS_TYPE_P2TR"
       ],
       "default": "BITCOIN_ADDRESS_TYPE_UNSPECIFIED",
-      "title": "- BITCOIN_ADDRESS_TYPE_P2PKH: Legacy\n - BITCOIN_ADDRESS_TYPE_P2SH: SegWit\n - BITCOIN_ADDRESS_TYPE_SEGWIT: Native SegWit or Bech32\n - BITCOIN_ADDRESS_TYPE_P2TR: Taproot address or Bech32m"
+      "description": "- BITCOIN_ADDRESS_TYPE_P2PKH: Legacy\n - BITCOIN_ADDRESS_TYPE_P2SH: SegWit\n - BITCOIN_ADDRESS_TYPE_SEGWIT: Native SegWit or Bech32\n - BITCOIN_ADDRESS_TYPE_P2TR: Taproot address or Bech32m"
     },
     "processing.common.v1.Blockchain": {
       "type": "string",
@@ -926,7 +997,7 @@
         "DOGECOIN_ADDRESS_TYPE_P2PKH"
       ],
       "default": "DOGECOIN_ADDRESS_TYPE_UNSPECIFIED",
-      "title": "- DOGECOIN_ADDRESS_TYPE_P2PKH: Legacy"
+      "description": "- DOGECOIN_ADDRESS_TYPE_P2PKH: Legacy"
     },
     "processing.common.v1.LitecoinAddressType": {
       "type": "string",
@@ -938,7 +1009,7 @@
         "LITECOIN_ADDRESS_TYPE_P2TR"
       ],
       "default": "LITECOIN_ADDRESS_TYPE_UNSPECIFIED",
-      "title": "- LITECOIN_ADDRESS_TYPE_P2PKH: Legacy\n - LITECOIN_ADDRESS_TYPE_P2SH: SegWit\n - LITECOIN_ADDRESS_TYPE_SEGWIT: Native SegWit or Bech32\n - LITECOIN_ADDRESS_TYPE_P2TR: Taproot address or Bech32m"
+      "description": "- LITECOIN_ADDRESS_TYPE_P2PKH: Legacy\n - LITECOIN_ADDRESS_TYPE_P2SH: SegWit\n - LITECOIN_ADDRESS_TYPE_SEGWIT: Native SegWit or Bech32\n - LITECOIN_ADDRESS_TYPE_P2TR: Taproot address or Bech32m"
     },
     "processing.owner.v1.ConfirmTwoFactorAuthRequest": {
       "type": "object",
@@ -1236,6 +1307,25 @@
         }
       }
     },
+    "processing.transfer.v1.CancelRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.transfer.v1.CancelResponse": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/processing.transfer.v1.Transfer"
+        }
+      }
+    },
     "processing.transfer.v1.CreateRequest": {
       "type": "object",
       "properties": {
@@ -1279,10 +1369,43 @@
         },
         "fee_max": {
           "type": "string"
+        },
+        "purpose": {
+          "$ref": "#/definitions/processing.transfer.v1.TransferPurpose"
+        },
+        "source_tx_hash": {
+          "type": "string",
+          "title": "Required for refunds: hash of the incoming deposit to the from address.\nAmount must not exceed the deposited amount, one active refund per deposit"
+        },
+        "totp": {
+          "type": "string",
+          "title": "Owner's TOTP code. Required for withdrawals to external addresses,\noptional for refunds (skips the cooldown)"
         }
       }
     },
     "processing.transfer.v1.CreateResponse": {
+      "type": "object",
+      "properties": {
+        "item": {
+          "$ref": "#/definitions/processing.transfer.v1.Transfer"
+        }
+      }
+    },
+    "processing.transfer.v1.ExecuteNowRequest": {
+      "type": "object",
+      "properties": {
+        "owner_id": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "totp": {
+          "type": "string"
+        }
+      }
+    },
+    "processing.transfer.v1.ExecuteNowResponse": {
       "type": "object",
       "properties": {
         "item": {
@@ -1317,9 +1440,11 @@
         "STATUS_UNCONFIRMED",
         "STATUS_COMPLETED",
         "STATUS_FAILED",
-        "STATUS_FROZEN"
+        "STATUS_FROZEN",
+        "STATUS_CANCELED"
       ],
       "default": "STATUS_UNSPECIFIED",
+      "description": "- STATUS_CANCELED: Scheduled transfer was canceled before execution",
       "title": "Transfer status"
     },
     "processing.transfer.v1.Transfer": {
@@ -1398,9 +1523,43 @@
             "$ref": "#/definitions/processing.transfer.v1.TransferTransaction"
           },
           "title": "List of system transactions associated with the transfer, sorted by created_at"
+        },
+        "purpose": {
+          "$ref": "#/definitions/processing.transfer.v1.TransferPurpose"
+        },
+        "source_tx_hash": {
+          "type": "string",
+          "title": "Hash of the incoming deposit being refunded, set for refunds only"
+        },
+        "wallet_from_type": {
+          "$ref": "#/definitions/processing.transfer.v1.WalletType"
+        },
+        "wallet_to_type": {
+          "$ref": "#/definitions/processing.transfer.v1.WalletType"
+        },
+        "execute_after": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Transfer is not picked up for execution before this time.\nEmpty for transfers executed immediately"
+        },
+        "two_factor_confirmed_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Time the transfer was confirmed by owner's TOTP, empty if not confirmed"
         }
       },
       "title": "Transfer"
+    },
+    "processing.transfer.v1.TransferPurpose": {
+      "type": "string",
+      "enum": [
+        "TRANSFER_PURPOSE_UNSPECIFIED",
+        "TRANSFER_PURPOSE_WITHDRAWAL",
+        "TRANSFER_PURPOSE_REFUND"
+      ],
+      "default": "TRANSFER_PURPOSE_UNSPECIFIED",
+      "description": "- TRANSFER_PURPOSE_UNSPECIFIED: Regular transfer between owner's wallets (hot -\u003e cold/processing, etc.)\n - TRANSFER_PURPOSE_WITHDRAWAL: Withdrawal to an external address, requires TOTP and is executed immediately\n - TRANSFER_PURPOSE_REFUND: Refund of an incoming deposit (source_tx_hash) from a hot wallet.\nWithout TOTP it is executed after the configured cooldown, with TOTP - immediately",
+      "title": "Transfer purpose"
     },
     "processing.transfer.v1.TransferTransaction": {
       "type": "object",
@@ -1462,7 +1621,7 @@
         "TRANSFER_TRANSACTION_STATUS_FAILED"
       ],
       "default": "TRANSFER_TRANSACTION_STATUS_UNSPECIFIED",
-      "title": "Transfer transaction status"
+      "description": "Transfer transaction status"
     },
     "processing.transfer.v1.TransferTransactionType": {
       "type": "string",
@@ -1475,7 +1634,20 @@
         "TRANSFER_TRANSACTION_TYPE_ACCOUNT_ACTIVATION"
       ],
       "default": "TRANSFER_TRANSACTION_TYPE_UNSPECIFIED",
-      "title": "Transfer transaction type"
+      "description": "Transfer transaction type"
+    },
+    "processing.transfer.v1.WalletType": {
+      "type": "string",
+      "enum": [
+        "WALLET_TYPE_UNSPECIFIED",
+        "WALLET_TYPE_HOT",
+        "WALLET_TYPE_COLD",
+        "WALLET_TYPE_PROCESSING",
+        "WALLET_TYPE_EXTERNAL"
+      ],
+      "default": "WALLET_TYPE_UNSPECIFIED",
+      "description": "- WALLET_TYPE_EXTERNAL: Address does not belong to the owner",
+      "title": "Wallet type of transfer source or destination"
     },
     "processing.wallet.v1.Asset": {
       "type": "object",

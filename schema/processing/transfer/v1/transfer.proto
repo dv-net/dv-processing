@@ -13,6 +13,10 @@ service TransferService {
   rpc Create(CreateRequest) returns (CreateResponse);
   // Get transfer by request ID
   rpc GetByRequestID(GetByRequestIDRequest) returns (GetByRequestIDResponse);
+  // Cancel a scheduled transfer before its execute_after is reached
+  rpc Cancel(CancelRequest) returns (CancelResponse);
+  // Execute a scheduled transfer immediately, confirmed by owner's TOTP
+  rpc ExecuteNow(ExecuteNowRequest) returns (ExecuteNowResponse);
 }
 
 // Transfer status
@@ -26,6 +30,8 @@ enum Status {
   STATUS_COMPLETED = 6;
   STATUS_FAILED = 7;
   STATUS_FROZEN = 8;
+  // Scheduled transfer was canceled before execution
+  STATUS_CANCELED = 9;
 }
 
 // Transfer transaction type
@@ -45,6 +51,27 @@ enum TransferTransactionStatus {
   TRANSFER_TRANSACTION_STATUS_UNCONFIRMED = 2;
   TRANSFER_TRANSACTION_STATUS_CONFIRMED = 3;
   TRANSFER_TRANSACTION_STATUS_FAILED = 4;
+}
+
+// Transfer purpose
+enum TransferPurpose {
+  // Regular transfer between owner's wallets (hot -> cold/processing, etc.)
+  TRANSFER_PURPOSE_UNSPECIFIED = 0;
+  // Withdrawal to an external address, requires TOTP and is executed immediately
+  TRANSFER_PURPOSE_WITHDRAWAL = 1;
+  // Refund of an incoming deposit (source_tx_hash) from a hot wallet.
+  // Without TOTP it is executed after the configured cooldown, with TOTP - immediately
+  TRANSFER_PURPOSE_REFUND = 2;
+}
+
+// Wallet type of transfer source or destination
+enum WalletType {
+  WALLET_TYPE_UNSPECIFIED = 0;
+  WALLET_TYPE_HOT = 1;
+  WALLET_TYPE_COLD = 2;
+  WALLET_TYPE_PROCESSING = 3;
+  // Address does not belong to the owner
+  WALLET_TYPE_EXTERNAL = 4;
 }
 
 // Transfer transaction
@@ -88,6 +115,16 @@ message Transfer {
   google.protobuf.Struct workflow_snapshot = 19;
   // List of system transactions associated with the transfer, sorted by created_at
   repeated TransferTransaction transactions = 20;
+  TransferPurpose purpose = 21;
+  // Hash of the incoming deposit being refunded, set for refunds only
+  optional string source_tx_hash = 22;
+  WalletType wallet_from_type = 23;
+  WalletType wallet_to_type = 24;
+  // Transfer is not picked up for execution before this time.
+  // Empty for transfers executed immediately
+  optional google.protobuf.Timestamp execute_after = 25;
+  // Time the transfer was confirmed by owner's TOTP, empty if not confirmed
+  optional google.protobuf.Timestamp two_factor_confirmed_at = 26;
 }
 
 /*
@@ -110,8 +147,43 @@ message CreateRequest {
   optional string kind = 9;
   optional string fee = 10;
   optional string fee_max = 11;
+  TransferPurpose purpose = 12;
+  // Required for refunds: hash of the incoming deposit to the from address.
+  // Amount must not exceed the deposited amount, one active refund per deposit
+  optional string source_tx_hash = 13;
+  // Owner's TOTP code. Required for withdrawals to external addresses,
+  // optional for refunds (skips the cooldown)
+  optional string totp = 14;
 }
+
 message CreateResponse { Transfer item = 1; }
+
+/*
+
+  Cancel transfer
+
+*/
+
+message CancelRequest {
+  string owner_id = 1;
+  string request_id = 2;
+}
+
+message CancelResponse { Transfer item = 1; }
+
+/*
+
+  Execute transfer now
+
+*/
+
+message ExecuteNowRequest {
+  string owner_id = 1;
+  string request_id = 2;
+  string totp = 3;
+}
+
+message ExecuteNowResponse { Transfer item = 1; }
 
 /*
 

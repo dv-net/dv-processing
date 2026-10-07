@@ -7,6 +7,10 @@ import (
 
 var assetDecimals = decimal.NewFromInt(bch.AssetDecimals)
 
+// dustThreshold is the minimum output value in base units accepted by the network.
+// P2PKH dust threshold of Bitcoin Cash nodes.
+var dustThreshold = decimal.NewFromInt(546)
+
 const (
 	stageBeforeSending = "before_sending"
 	stageSending       = "sending"

@@ -7,6 +7,10 @@ import (
 
 var assetDecimals = decimal.NewFromInt(doge.AssetDecimals)
 
+// dustThreshold is the minimum output value in base units accepted by the network.
+// Dogecoin Core soft dust limit (0.01 DOGE).
+var dustThreshold = decimal.NewFromInt(1000000)
+
 const (
 	stageBeforeSending = "before_sending"
 	stageSending       = "sending"

@@ -120,10 +120,6 @@ func (r CreateTransferRequest) validate(conf *config.Config) error {
 }
 
 func (r CreateTransferRequest) validateBitcoin() error {
-	// if !r.WholeAmount {
-	// 	return fmt.Errorf("currently only whole amount transfers are supported for bitcoin blockchain")
-	// }
-
 	if r.Kind != nil {
 		return fmt.Errorf("kind is not supported for the bitcoin blockchain")
 	}
@@ -136,10 +132,6 @@ func (r CreateTransferRequest) validateBitcoin() error {
 }
 
 func (r CreateTransferRequest) validateLitecoin() error {
-	// if !r.WholeAmount {
-	// 	return fmt.Errorf("currently only whole amount transfers are supported for litecoin blockchain")
-	// }
-
 	if r.Kind != nil {
 		return fmt.Errorf("kind is not supported for the litecoin blockchain")
 	}

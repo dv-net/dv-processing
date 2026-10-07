@@ -166,8 +166,9 @@ func (s *FSM) validateRequest(ctx context.Context, _ *workflow.Workflow, _ *work
 		return fmt.Errorf("required one to address")
 	}
 
-	if !s.transfer.WholeAmount {
-		return fmt.Errorf("only whole amount is supported for dogecoin transfers")
+	// change of a transfer with amount is sent back to the single from address
+	if !s.transfer.WholeAmount && len(s.transfer.FromAddresses) != 1 {
+		return fmt.Errorf("only one from address is supported for transfer with amount")
 	}
 
 	// check cold or processing wallet
@@ -278,27 +279,10 @@ func (s *FSM) sendTransfer(ctx context.Context, _ *workflow.Workflow, _ *workflo
 		return fmt.Errorf("amount remaining is negative: %s", amountRemaining.String())
 	}
 
-	// set output
-	if err := newTx.AddOutput(toAddress, transferAmount); err != nil {
-		return fmt.Errorf("add transaction output for address %s: %w", toAddress, err)
-	}
-
-	// send remaining amount back
-	// TODO: send the amount back to the desired wallet
-	if amountRemaining.IsPositive() {
-		if err := newTx.AddOutput(s.transfer.FromAddresses[0], amountRemaining); err != nil {
-			return fmt.Errorf("add transaction output for address %s: %w", s.transfer.FromAddresses[0], err)
-		}
-	}
-
-	// emulate transaction and calculate fee
-	txSizeData, err := newTx.EmulateTxSize(feePerByte)
+	txSizeData, err := s.addOutputsAndFee(newTx, toAddress, transferAmount, amountRemaining, feePerByte)
 	if err != nil {
-		return fmt.Errorf("emulate transaction size: %w", err)
+		return err
 	}
-
-	// set fee to the original transaction
-	newTx.MsgTx().TxOut[0].Value -= txSizeData.TotalFee.IntPart()
 
 	// sign original transaction
 	if err := newTx.SignTx(); err != nil {

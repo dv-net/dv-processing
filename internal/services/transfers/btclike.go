@@ -34,10 +34,7 @@ func (s *Service) processBTCLike(ctx context.Context, req *CreateTransferRequest
 		return fmt.Errorf("unsupported blockchain: %s", req.Blockchain)
 	}
 
-	if !req.WholeAmount {
-		return fmt.Errorf("only whole amount is supported for bitcoin transfers")
-	}
-
+	// change of a transfer with amount is sent back to the single from address
 	if !req.WholeAmount && len(req.FromAddresses) != 1 {
 		return fmt.Errorf("only one from address is supported for transfer with amount")
 	}

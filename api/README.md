@@ -61,16 +61,22 @@
     - [SystemService](#processing-system-v1-SystemService)
   
 - [processing/transfer/v1/transfer.proto](#processing_transfer_v1_transfer-proto)
+    - [CancelRequest](#processing-transfer-v1-CancelRequest)
+    - [CancelResponse](#processing-transfer-v1-CancelResponse)
     - [CreateRequest](#processing-transfer-v1-CreateRequest)
     - [CreateResponse](#processing-transfer-v1-CreateResponse)
+    - [ExecuteNowRequest](#processing-transfer-v1-ExecuteNowRequest)
+    - [ExecuteNowResponse](#processing-transfer-v1-ExecuteNowResponse)
     - [GetByRequestIDRequest](#processing-transfer-v1-GetByRequestIDRequest)
     - [GetByRequestIDResponse](#processing-transfer-v1-GetByRequestIDResponse)
     - [Transfer](#processing-transfer-v1-Transfer)
     - [TransferTransaction](#processing-transfer-v1-TransferTransaction)
   
     - [Status](#processing-transfer-v1-Status)
+    - [TransferPurpose](#processing-transfer-v1-TransferPurpose)
     - [TransferTransactionStatus](#processing-transfer-v1-TransferTransactionStatus)
     - [TransferTransactionType](#processing-transfer-v1-TransferTransactionType)
+    - [WalletType](#processing-transfer-v1-WalletType)
   
     - [TransferService](#processing-transfer-v1-TransferService)
   
@@ -851,6 +857,37 @@ Service which provides system information
 
 
 
+<a name="processing-transfer-v1-CancelRequest"></a>
+
+### CancelRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| owner_id | [string](#string) |  |  |
+| request_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="processing-transfer-v1-CancelResponse"></a>
+
+### CancelResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| item | [Transfer](#processing-transfer-v1-Transfer) |  |  |
+
+
+
+
+
+
 <a name="processing-transfer-v1-CreateRequest"></a>
 
 ### CreateRequest
@@ -870,6 +907,9 @@ Service which provides system information
 | kind | [string](#string) | optional | delegate / burn / etc... |
 | fee | [string](#string) | optional |  |
 | fee_max | [string](#string) | optional |  |
+| purpose | [TransferPurpose](#processing-transfer-v1-TransferPurpose) |  |  |
+| source_tx_hash | [string](#string) | optional | Required for refunds: hash of the incoming deposit to the from address. Amount must not exceed the deposited amount, one active refund per deposit |
+| totp | [string](#string) | optional | Owner&#39;s TOTP code. Required for withdrawals to external addresses, optional for refunds (skips the cooldown) |
 
 
 
@@ -879,6 +919,38 @@ Service which provides system information
 <a name="processing-transfer-v1-CreateResponse"></a>
 
 ### CreateResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| item | [Transfer](#processing-transfer-v1-Transfer) |  |  |
+
+
+
+
+
+
+<a name="processing-transfer-v1-ExecuteNowRequest"></a>
+
+### ExecuteNowRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| owner_id | [string](#string) |  |  |
+| request_id | [string](#string) |  |  |
+| totp | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="processing-transfer-v1-ExecuteNowResponse"></a>
+
+### ExecuteNowResponse
 
 
 
@@ -949,6 +1021,12 @@ Transfer
 | state_data | [google.protobuf.Struct](#google-protobuf-Struct) |  |  |
 | workflow_snapshot | [google.protobuf.Struct](#google-protobuf-Struct) |  |  |
 | transactions | [TransferTransaction](#processing-transfer-v1-TransferTransaction) | repeated | List of system transactions associated with the transfer, sorted by created_at |
+| purpose | [TransferPurpose](#processing-transfer-v1-TransferPurpose) |  |  |
+| source_tx_hash | [string](#string) | optional | Hash of the incoming deposit being refunded, set for refunds only |
+| wallet_from_type | [WalletType](#processing-transfer-v1-WalletType) |  |  |
+| wallet_to_type | [WalletType](#processing-transfer-v1-WalletType) |  |  |
+| execute_after | [google.protobuf.Timestamp](#google-protobuf-Timestamp) | optional | Transfer is not picked up for execution before this time. Empty for transfers executed immediately |
+| two_factor_confirmed_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) | optional | Time the transfer was confirmed by owner&#39;s TOTP, empty if not confirmed |
 
 
 
@@ -999,6 +1077,20 @@ Transfer status
 | STATUS_COMPLETED | 6 |  |
 | STATUS_FAILED | 7 |  |
 | STATUS_FROZEN | 8 |  |
+| STATUS_CANCELED | 9 | Scheduled transfer was canceled before execution |
+
+
+
+<a name="processing-transfer-v1-TransferPurpose"></a>
+
+### TransferPurpose
+Transfer purpose
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| TRANSFER_PURPOSE_UNSPECIFIED | 0 | Regular transfer between owner&#39;s wallets (hot -&gt; cold/processing, etc.) |
+| TRANSFER_PURPOSE_WITHDRAWAL | 1 | Withdrawal to an external address, requires TOTP and is executed immediately |
+| TRANSFER_PURPOSE_REFUND | 2 | Refund of an incoming deposit (source_tx_hash) from a hot wallet. Without TOTP it is executed after the configured cooldown, with TOTP - immediately |
 
 
 
@@ -1032,6 +1124,21 @@ Transfer transaction type
 | TRANSFER_TRANSACTION_TYPE_ACCOUNT_ACTIVATION | 5 |  |
 
 
+
+<a name="processing-transfer-v1-WalletType"></a>
+
+### WalletType
+Wallet type of transfer source or destination
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| WALLET_TYPE_UNSPECIFIED | 0 |  |
+| WALLET_TYPE_HOT | 1 |  |
+| WALLET_TYPE_COLD | 2 |  |
+| WALLET_TYPE_PROCESSING | 3 |  |
+| WALLET_TYPE_EXTERNAL | 4 | Address does not belong to the owner |
+
+
  
 
  
@@ -1046,6 +1153,8 @@ Service which interacts with transfers
 | ----------- | ------------ | ------------- | ------------|
 | Create | [CreateRequest](#processing-transfer-v1-CreateRequest) | [CreateResponse](#processing-transfer-v1-CreateResponse) | Create a new transfer |
 | GetByRequestID | [GetByRequestIDRequest](#processing-transfer-v1-GetByRequestIDRequest) | [GetByRequestIDResponse](#processing-transfer-v1-GetByRequestIDResponse) | Get transfer by request ID |
+| Cancel | [CancelRequest](#processing-transfer-v1-CancelRequest) | [CancelResponse](#processing-transfer-v1-CancelResponse) | Cancel a scheduled transfer before its execute_after is reached |
+| ExecuteNow | [ExecuteNowRequest](#processing-transfer-v1-ExecuteNowRequest) | [ExecuteNowResponse](#processing-transfer-v1-ExecuteNowResponse) | Execute a scheduled transfer immediately, confirmed by owner&#39;s TOTP |
 
  
 

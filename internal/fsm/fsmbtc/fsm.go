@@ -193,22 +193,9 @@ func (s *FSM) sendTransfer(ctx context.Context, _ *workflow.Workflow, _ *workflo
 		return fmt.Errorf("required one to address")
 	}
 
-	// configure fee per byte
-	feePerByte := s.feePerByte
-	if s.config.Blockchain.Bitcoin.Network == "testnet" {
-		feePerByte = decimal.NewFromInt(5)
-	}
-
-	// use fee from request if it is set
-	if s.transfer.Fee.Valid && s.transfer.Fee.Decimal.GreaterThan(decimal.Zero) {
-		feePerByte = s.transfer.Fee.Decimal
-	}
-
-	// check max fee if it is set
-	if s.transfer.FeeMax.Valid &&
-		s.transfer.FeeMax.Decimal.IsPositive() &&
-		feePerByte.GreaterThan(s.transfer.FeeMax.Decimal) {
-		return fmt.Errorf("fee per byte %s is greater than max fee %s", feePerByte.String(), s.transfer.FeeMax.Decimal.String())
+	feePerByte, err := s.getFeePerByte()
+	if err != nil {
+		return err
 	}
 
 	toAddress := s.transfer.GetToAddress()

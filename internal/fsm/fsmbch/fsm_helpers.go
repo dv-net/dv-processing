@@ -12,6 +12,7 @@ import (
 	"github.com/dv-net/dv-processing/pkg/encryption"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/bch"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
+	"github.com/dv-net/dv-processing/rpccode"
 	"github.com/shopspring/decimal"
 )
 
@@ -227,4 +228,50 @@ func (s *FSM) addOutputsAndFee(
 	}
 
 	return txSizeData, nil
+}
+
+// getFeePerByte returns the fee per byte for the transfer: from the request if it is set,
+// otherwise the current network rate estimated by the node. If the node has no estimate yet,
+// the configured fee per byte is used.
+//
+// The fee per byte must not exceed the max fee from the request or,
+// for transfers from hot wallets, the configured fee per byte.
+func (s *FSM) getFeePerByte() (decimal.Decimal, error) {
+	var feePerByte decimal.Decimal
+	switch {
+	case s.transfer.Fee.Valid && s.transfer.Fee.Decimal.IsPositive():
+		feePerByte = s.transfer.Fee.Decimal
+	case s.config.Blockchain.BitcoinCash.Network == "testnet":
+		feePerByte = decimal.NewFromInt(5)
+	default:
+		estimated, err := s.bch.EstimateFeePerByte()
+		if err != nil {
+			return decimal.Zero, fmt.Errorf("estimate fee per byte: %w", err)
+		}
+
+		feePerByte = estimated
+		if !feePerByte.IsPositive() {
+			feePerByte = s.feePerByte
+		}
+	}
+
+	if !feePerByte.IsPositive() {
+		return decimal.Zero, fmt.Errorf("fee per byte is not estimated by the node and not set in the config")
+	}
+
+	var maxFeePerByte decimal.Decimal
+	if s.transfer.FeeMax.Valid {
+		maxFeePerByte = s.transfer.FeeMax.Decimal
+	} else if s.transfer.WalletFromType == constants.WalletTypeHot {
+		maxFeePerByte = s.feePerByte
+	}
+
+	if maxFeePerByte.IsPositive() && feePerByte.GreaterThan(maxFeePerByte) {
+		return decimal.Zero, fmt.Errorf(
+			"%w: fee per byte is exceeded: %s > %s",
+			rpccode.GetErrorByCode(rpccode.RPCCodeMaxFeeExceeded), feePerByte.String(), maxFeePerByte.String(),
+		)
+	}
+
+	return feePerByte, nil
 }

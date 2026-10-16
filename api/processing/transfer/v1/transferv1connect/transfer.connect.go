@@ -43,6 +43,9 @@ const (
 	// TransferServiceExecuteNowProcedure is the fully-qualified name of the TransferService's
 	// ExecuteNow RPC.
 	TransferServiceExecuteNowProcedure = "/processing.transfer.v1.TransferService/ExecuteNow"
+	// TransferServiceCheckRefundProcedure is the fully-qualified name of the TransferService's
+	// CheckRefund RPC.
+	TransferServiceCheckRefundProcedure = "/processing.transfer.v1.TransferService/CheckRefund"
 )
 
 // TransferServiceClient is a client for the processing.transfer.v1.TransferService service.
@@ -55,6 +58,9 @@ type TransferServiceClient interface {
 	Cancel(context.Context, *connect.Request[v1.CancelRequest]) (*connect.Response[v1.CancelResponse], error)
 	// Execute a scheduled transfer immediately, confirmed by owner's TOTP
 	ExecuteNow(context.Context, *connect.Request[v1.ExecuteNowRequest]) (*connect.Response[v1.ExecuteNowResponse], error)
+	// Check that a refund can be created: the deposit is valid and the hot wallet
+	// pays the network fee by itself. Nothing is created, TOTP is not checked
+	CheckRefund(context.Context, *connect.Request[v1.CheckRefundRequest]) (*connect.Response[v1.CheckRefundResponse], error)
 }
 
 // NewTransferServiceClient constructs a client for the processing.transfer.v1.TransferService
@@ -92,6 +98,12 @@ func NewTransferServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(transferServiceMethods.ByName("ExecuteNow")),
 			connect.WithClientOptions(opts...),
 		),
+		checkRefund: connect.NewClient[v1.CheckRefundRequest, v1.CheckRefundResponse](
+			httpClient,
+			baseURL+TransferServiceCheckRefundProcedure,
+			connect.WithSchema(transferServiceMethods.ByName("CheckRefund")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -101,6 +113,7 @@ type transferServiceClient struct {
 	getByRequestID *connect.Client[v1.GetByRequestIDRequest, v1.GetByRequestIDResponse]
 	cancel         *connect.Client[v1.CancelRequest, v1.CancelResponse]
 	executeNow     *connect.Client[v1.ExecuteNowRequest, v1.ExecuteNowResponse]
+	checkRefund    *connect.Client[v1.CheckRefundRequest, v1.CheckRefundResponse]
 }
 
 // Create calls processing.transfer.v1.TransferService.Create.
@@ -123,6 +136,11 @@ func (c *transferServiceClient) ExecuteNow(ctx context.Context, req *connect.Req
 	return c.executeNow.CallUnary(ctx, req)
 }
 
+// CheckRefund calls processing.transfer.v1.TransferService.CheckRefund.
+func (c *transferServiceClient) CheckRefund(ctx context.Context, req *connect.Request[v1.CheckRefundRequest]) (*connect.Response[v1.CheckRefundResponse], error) {
+	return c.checkRefund.CallUnary(ctx, req)
+}
+
 // TransferServiceHandler is an implementation of the processing.transfer.v1.TransferService
 // service.
 type TransferServiceHandler interface {
@@ -134,6 +152,9 @@ type TransferServiceHandler interface {
 	Cancel(context.Context, *connect.Request[v1.CancelRequest]) (*connect.Response[v1.CancelResponse], error)
 	// Execute a scheduled transfer immediately, confirmed by owner's TOTP
 	ExecuteNow(context.Context, *connect.Request[v1.ExecuteNowRequest]) (*connect.Response[v1.ExecuteNowResponse], error)
+	// Check that a refund can be created: the deposit is valid and the hot wallet
+	// pays the network fee by itself. Nothing is created, TOTP is not checked
+	CheckRefund(context.Context, *connect.Request[v1.CheckRefundRequest]) (*connect.Response[v1.CheckRefundResponse], error)
 }
 
 // NewTransferServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -167,6 +188,12 @@ func NewTransferServiceHandler(svc TransferServiceHandler, opts ...connect.Handl
 		connect.WithSchema(transferServiceMethods.ByName("ExecuteNow")),
 		connect.WithHandlerOptions(opts...),
 	)
+	transferServiceCheckRefundHandler := connect.NewUnaryHandler(
+		TransferServiceCheckRefundProcedure,
+		svc.CheckRefund,
+		connect.WithSchema(transferServiceMethods.ByName("CheckRefund")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/processing.transfer.v1.TransferService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TransferServiceCreateProcedure:
@@ -177,6 +204,8 @@ func NewTransferServiceHandler(svc TransferServiceHandler, opts ...connect.Handl
 			transferServiceCancelHandler.ServeHTTP(w, r)
 		case TransferServiceExecuteNowProcedure:
 			transferServiceExecuteNowHandler.ServeHTTP(w, r)
+		case TransferServiceCheckRefundProcedure:
+			transferServiceCheckRefundHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -200,4 +229,8 @@ func (UnimplementedTransferServiceHandler) Cancel(context.Context, *connect.Requ
 
 func (UnimplementedTransferServiceHandler) ExecuteNow(context.Context, *connect.Request[v1.ExecuteNowRequest]) (*connect.Response[v1.ExecuteNowResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("processing.transfer.v1.TransferService.ExecuteNow is not implemented"))
+}
+
+func (UnimplementedTransferServiceHandler) CheckRefund(context.Context, *connect.Request[v1.CheckRefundRequest]) (*connect.Response[v1.CheckRefundResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("processing.transfer.v1.TransferService.CheckRefund is not implemented"))
 }

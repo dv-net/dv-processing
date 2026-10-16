@@ -8,9 +8,14 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
-- feat: refund system
-- feat: btc-like send any amount
-- 
+- feat: refund of incoming deposits from hot wallets (`purpose: refund`, `source_tx_hash`): back to the deposit sender without TOTP after `transfers.refund_cooldown` (default 6h), to any external address with TOTP immediately; amount is capped by the deposit, one active refund per deposit
+- feat: withdrawals to external addresses (`purpose: withdrawal`), require owner TOTP
+- feat: new TransferService RPCs: `Cancel` (cancel a scheduled transfer before `execute_after`), `ExecuteNow` (run a scheduled transfer immediately with TOTP), `CheckRefund` (validate a refund and estimate the network fee without creating it)
+- feat: transfer fields `purpose`, `source_tx_hash`, `wallet_from_type`, `wallet_to_type` (incl. `external`), `execute_after`, `two_factor_confirmed_at`; new transfer status `canceled`
+- feat: refund network fee is paid by the hot wallet itself (tron self-funded fee estimation); for native coin refunds the fee is subtracted from the amount
+- feat: btc-like send any amount, fee estimation for btc/ltc/bch/doge transfers
+- chore: db migrations `add_transfer_purpose`, `add_transfers_broadcast_at`
+
 ### [0.9.12] - 2026-09-14
 - fix: fail tron transfers whose broadcast tx never lands on-chain instead of snoozing forever in confirmation steps
 - fix: size EVM native transfer gas limit from the on-chain estimate so sends to contract / EIP-7702-delegated recipients no longer revert with "out of gas"

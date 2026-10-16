@@ -32,6 +32,7 @@ func (s *Service) processTron(ctx context.Context, req *CreateTransferRequest) e
 		StatusesNotIn: []string{
 			constants.TransferStatusCompleted.String(),
 			constants.TransferStatusFailed.String(),
+			constants.TransferStatusCanceled.String(),
 		},
 		FromAddress: &req.FromAddresses[0],
 		Blockchain:  &req.Blockchain,
@@ -51,6 +52,14 @@ func (s *Service) processTron(ctx context.Context, req *CreateTransferRequest) e
 			return fmt.Errorf("handle processing wallet: %w", err)
 		}
 	case constants.WalletTypeHot:
+		// refunds are paid by the hot wallet itself, the processing wallet is not used
+		if req.Purpose == constants.TransferPurposeRefund {
+			if err := s.processTronRefund(ctx, req); err != nil {
+				return fmt.Errorf("handle refund: %w", err)
+			}
+			return nil
+		}
+
 		if err := s.processTronHotWallets(ctx, req); err != nil {
 			return fmt.Errorf("handle hot wallet: %w", err)
 		}

@@ -42,6 +42,8 @@ explorer_proxy:
   name: explorer-proxy-client
   addr: https://explorer-proxy.dv.net
 blockchain:
+  e_scanner:
+    blocks_in_chunk: 20
   tron:
     enabled: true
     node:
@@ -162,6 +164,7 @@ interceptors:
   disable_checking_sign: false
 transfers:
   enabled: true
+  refund_cooldown: 6h0m0s
 use_cache_for_wallets: true
 merchant_admin:
   base_url: https://api.dv.net

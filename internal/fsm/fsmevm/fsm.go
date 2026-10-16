@@ -94,6 +94,21 @@ func NewFSM(
 			if steps, ok := exitOnFailedSteps[currentStage]; ok {
 				for _, step := range steps {
 					if step == currentStep {
+						// the transaction of the step may already be in the network: the error happened
+						// after the broadcast or the broadcast result is unknown. Failing the transfer
+						// would allow to send it again (e.g. a second refund of the same deposit),
+						// so the step is retried, it skips the sending and tracks the saved transaction
+						sent, sentErr := fsm.stepTxSaved(ctx, currentStep)
+						if sentErr != nil || sent {
+							fsm.logger.Warnw("step failed after its transaction was saved, retrying",
+								"transfer_id", fsm.transfer.ID,
+								"step", currentStep,
+								"error", err,
+								"check_error", sentErr,
+							)
+							return nil
+						}
+
 						return pgx.BeginTxFunc(ctx, st.PSQLConn(), pgx.TxOptions{}, func(tx pgx.Tx) error {
 							return fsm.sendFailureEvent(ctx, w, err, repos.WithTx(tx))
 						})
@@ -168,4 +183,25 @@ func (s *FSM) Run(ctx context.Context) error {
 	return s.wf.Run(
 		constants.WithClientContext(ctx, s.transfer.ClientID),
 	)
+}
+
+// stepTxSaved checks if the system transaction of the sending step is saved,
+// i.e. the transaction may have been broadcast
+func (s *FSM) stepTxSaved(ctx context.Context, step string) (bool, error) {
+	var txType models.TransferTransactionType
+	switch step {
+	case stepSending:
+		txType = models.TransferTransactionTypeTransfer
+	case stepSendBaseAssetForBurn:
+		txType = models.TransferTransactionTypeSendBurnBaseAsset
+	default:
+		return false, nil
+	}
+
+	txs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, txType)
+	if err != nil {
+		return false, fmt.Errorf("find system transactions: %w", err)
+	}
+
+	return len(txs) > 0, nil
 }

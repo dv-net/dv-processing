@@ -16,11 +16,17 @@ import (
 // TODO: in current logic transfer will be failed when got stuck in mempool as long as system tx are pended
 // TODO: FIX IN: DV-2362
 func (s *FSM) waitingForTheFirstConfirmation(ctx context.Context, _ *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
+	// timeouts are counted from the broadcast, not from the transfer creation:
+	// scheduled refunds are created long before they are sent
+	sentAt, err := s.txSentAt(ctx, s.transfer.TxHash.String)
+	if err != nil {
+		return err
+	}
+
 	_, isPending, err := s.evm.Node().TransactionByHash(ctx, common.HexToHash(s.transfer.TxHash.String))
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") &&
-			s.transfer.CreatedAt.Valid &&
-			time.Since(s.transfer.CreatedAt.Time) > time.Minute*5 {
+			time.Since(sentAt) > time.Minute*5 {
 			// Transaction has been removed from blockchain
 			return newErrFailedTransfer(fmt.Errorf("transaction %s not found in the blockchain: %w", s.transfer.TxHash.String, err))
 		}
@@ -30,7 +36,7 @@ func (s *FSM) waitingForTheFirstConfirmation(ctx context.Context, _ *workflow.Wo
 	// if transaction is pending, snooze for 1 second
 	if isPending {
 		duration := time.Second
-		if s.transfer.CreatedAt.Valid && time.Since(s.transfer.CreatedAt.Time) > 1*time.Hour {
+		if time.Since(sentAt) > 1*time.Hour {
 			duration = 30 * time.Second
 		}
 		return workflow.NoConsoleError(river.JobSnooze(duration))

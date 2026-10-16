@@ -168,6 +168,7 @@ func (s *Service) EventTransferStatusCreateParams(ctx context.Context, params Ev
 		ErrorMessage:       params.ErrorMessage,
 		SystemTransactions: sysTxs,
 		RequestID:          transfer.RequestID,
+		Broadcast:          transfer.BroadcastAt.Valid,
 	}
 
 	payload, err := payloadParams.RawMessage()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/dv-net/dv-processing/internal/constants"
+	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/internal/workflow"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/tron"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
@@ -14,6 +15,22 @@ import (
 
 // sending
 func (s *FSM) sending(ctx context.Context, _ *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
+	// the transaction may already be sent on a previous attempt, it must not be sent twice
+	existingTxs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, models.TransferTransactionTypeTransfer)
+	if err != nil {
+		return fmt.Errorf("find existing transaction: %w", err)
+	}
+	if len(existingTxs) > 0 {
+		s.logger.Infow("transaction already exists, skipping send", "tx_hash", existingTxs[0].TxHash)
+		if s.transfer.TxHash.String != existingTxs[0].TxHash {
+			s.transfer, err = s.bs.Transfers().SetTxHash(ctx, s.transfer.ID, existingTxs[0].TxHash)
+			if err != nil {
+				return fmt.Errorf("set tx hash: %w", err)
+			}
+		}
+		return nil
+	}
+
 	fromAddress := s.transfer.GetFromAddress()
 	toAddress := s.transfer.GetToAddress()
 
@@ -57,6 +74,14 @@ func (s *FSM) sending(ctx context.Context, _ *workflow.Workflow, _ *workflow.Sta
 					amount = amount.Sub(estimate.Trx)
 				}
 			}
+		}
+	}
+
+	// refunds pay the fee by themselves, for TRX it is subtracted from the amount
+	if s.transfer.IsRefund() {
+		amount, err = s.refundAmount(ctx, fromAddress, toAddress, amount)
+		if err != nil {
+			return err
 		}
 	}
 

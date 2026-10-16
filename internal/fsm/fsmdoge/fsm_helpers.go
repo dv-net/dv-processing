@@ -207,6 +207,30 @@ func (s *FSM) addOutputsAndFee(
 		return txSizeData, fmt.Errorf("emulate transaction size: %w", err)
 	}
 
+	// Refunds of the native coin pay the fee from the recipient output and return the change in full.
+	// Change below the dust threshold is dropped and goes to the fee.
+	if s.transfer.FeeFromAmount() {
+		if amountRemaining.LessThan(dustThreshold) {
+			newTx.MsgTx().TxOut = newTx.MsgTx().TxOut[:1]
+
+			txSizeData, err = newTx.EmulateTxSize(feePerByte)
+			if err != nil {
+				return txSizeData, fmt.Errorf("emulate transaction size without change: %w", err)
+			}
+		}
+
+		if transferAmount.Sub(txSizeData.TotalFee).LessThan(dustThreshold) {
+			return txSizeData, fmt.Errorf(
+				"%w: refund amount %s does not cover fee %s",
+				rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), transferAmount.String(), txSizeData.TotalFee.String(),
+			)
+		}
+
+		newTx.MsgTx().TxOut[0].Value -= txSizeData.TotalFee.IntPart()
+
+		return txSizeData, nil
+	}
+
 	// Change after the fee would be a dust output rejected by the network,
 	// so drop it and leave the whole remaining amount as the fee.
 	if !s.transfer.WholeAmount && amountRemaining.Sub(txSizeData.TotalFee).LessThan(dustThreshold) {

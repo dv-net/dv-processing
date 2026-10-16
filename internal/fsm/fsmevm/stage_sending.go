@@ -9,6 +9,7 @@ import (
 	"github.com/dv-net/dv-processing/internal/util"
 	"github.com/dv-net/dv-processing/internal/workflow"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/evm"
+	"github.com/dv-net/dv-processing/rpccode"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -87,8 +88,27 @@ func (s *FSM) sending(ctx context.Context, _ *workflow.Workflow, _ *workflow.Sta
 		}
 	}
 
-	if s.transfer.WholeAmount && s.transfer.AssetIdentifier == s.evm.Blockchain().GetAssetIdentifier() {
-		amount = amount.Sub(evm.NewUnit(estimateResult.TotalFeeAmount, evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal())
+	// whole amount transfers and refunds of the native coin pay the fee from the amount
+	if (s.transfer.WholeAmount || s.transfer.FeeFromAmount()) && s.transfer.AssetIdentifier == s.evm.Blockchain().GetAssetIdentifier() {
+		fee := evm.NewUnit(estimateResult.TotalFeeAmount, evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal()
+		requestedAmount := amount
+		amount = amount.Sub(fee)
+
+		if s.transfer.FeeFromAmount() {
+			if !amount.IsPositive() {
+				return fmt.Errorf("%w: refund amount %s does not cover fee %s", rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), requestedAmount, fee)
+			}
+
+			if err := s.bs.Transfers().SetStateData(ctx, s.transfer.ID, map[string]any{
+				"refund": map[string]any{
+					"amount":      requestedAmount.String(),
+					"fee":         fee.String(),
+					"sent_amount": amount.String(),
+				},
+			}); err != nil {
+				return fmt.Errorf("set state data: %w", err)
+			}
+		}
 	}
 
 	if !amount.IsPositive() {

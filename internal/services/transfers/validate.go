@@ -2,7 +2,9 @@ package transfers
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/dv-net/dv-processing/internal/config"
 	"github.com/dv-net/dv-processing/internal/constants"
@@ -16,7 +18,7 @@ import (
 )
 
 // validate request
-func (r CreateTransferRequest) validate(conf *config.Config) error {
+func (r *CreateTransferRequest) validate(conf *config.Config) error {
 	if r.OwnerID == uuid.Nil {
 		return fmt.Errorf("owner id is required")
 	}
@@ -100,6 +102,10 @@ func (r CreateTransferRequest) validate(conf *config.Config) error {
 		return fmt.Errorf("max fee must be greater than 0")
 	}
 
+	if err := r.validatePurpose(); err != nil {
+		return err
+	}
+
 	switch r.Blockchain {
 	case wconstants.BlockchainTypeBitcoin:
 		return r.validateBitcoin()
@@ -119,7 +125,95 @@ func (r CreateTransferRequest) validate(conf *config.Config) error {
 	}
 }
 
-func (r CreateTransferRequest) validateBitcoin() error {
+// normalize trims user input and lowercases the source tx hash,
+// so the same deposit always hits the refund unique index
+func (r *CreateTransferRequest) normalize() {
+	if r.Purpose == "" {
+		r.Purpose = constants.TransferPurposeDefault
+	}
+
+	r.TOTP = strings.TrimSpace(r.TOTP)
+
+	if r.SourceTxHash != nil {
+		hash := strings.ToLower(strings.TrimSpace(*r.SourceTxHash))
+		r.SourceTxHash = &hash
+	}
+}
+
+// feeFromAmount returns true when the network fee is subtracted from the amount: refunds of the native coin
+func (r *CreateTransferRequest) feeFromAmount() bool {
+	return r.Purpose == constants.TransferPurposeRefund && r.AssetIdentifier == r.Blockchain.GetAssetIdentifier()
+}
+
+// validatePurpose validates purpose-specific fields of the request
+func (r *CreateTransferRequest) validatePurpose() error {
+	if !r.Purpose.Valid() {
+		return fmt.Errorf("invalid transfer purpose: %s", r.Purpose)
+	}
+
+	// external transfers must have an exact amount (transfers_external_amount_check)
+	if r.Purpose != constants.TransferPurposeDefault && r.WholeAmount {
+		return fmt.Errorf("whole amount is not allowed for %s transfers", r.Purpose)
+	}
+
+	// source tx hash is set for refunds only (transfers_refund_source_check)
+	if r.Purpose == constants.TransferPurposeRefund {
+		if r.SourceTxHash == nil || *r.SourceTxHash == "" {
+			return fmt.Errorf("source tx hash is required for refund transfers")
+		}
+
+		if !isValidTxHash(r.Blockchain, *r.SourceTxHash) {
+			return fmt.Errorf("invalid source tx hash %s", *r.SourceTxHash)
+		}
+
+		// deposit has a single recipient, the refund is sent from it
+		if len(r.FromAddresses) != 1 {
+			return fmt.Errorf("refund requires exactly one from address")
+		}
+	} else if r.SourceTxHash != nil {
+		return fmt.Errorf("source tx hash is allowed for refund transfers only")
+	}
+
+	if r.TOTP == "" {
+		if r.Purpose == constants.TransferPurposeWithdrawal {
+			return fmt.Errorf("totp is required for withdrawal transfers: %w", rpccode.GetErrorByCode(rpccode.RPCCodeTwoFactorRequired))
+		}
+		return nil
+	}
+
+	if r.Purpose == constants.TransferPurposeDefault {
+		return fmt.Errorf("totp is not allowed for default transfers")
+	}
+
+	if !totpRegexp.MatchString(r.TOTP) {
+		return fmt.Errorf("invalid totp format: %w", rpccode.GetErrorByCode(rpccode.RPCCodeTwoFactorInvalid))
+	}
+
+	return nil
+}
+
+var (
+	totpRegexp    = regexp.MustCompile(`^\d{6}$`)
+	txHashRegexp  = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	evmHashRegexp = regexp.MustCompile(`^0x[0-9a-f]{64}$`)
+)
+
+// isValidTxHash checks the normalized (lowercase) tx hash format for the blockchain
+func isValidTxHash(blockchain wconstants.BlockchainType, hash string) bool {
+	switch blockchain {
+	case wconstants.BlockchainTypeEthereum,
+		wconstants.BlockchainTypeBinanceSmartChain,
+		wconstants.BlockchainTypePolygon,
+		wconstants.BlockchainTypeArbitrum,
+		wconstants.BlockchainTypeOptimism,
+		wconstants.BlockchainTypeLinea:
+		return evmHashRegexp.MatchString(hash)
+	default:
+		return txHashRegexp.MatchString(hash)
+	}
+}
+
+func (r *CreateTransferRequest) validateBitcoin() error {
 	if r.Kind != nil {
 		return fmt.Errorf("kind is not supported for the bitcoin blockchain")
 	}
@@ -131,7 +225,7 @@ func (r CreateTransferRequest) validateBitcoin() error {
 	return nil
 }
 
-func (r CreateTransferRequest) validateLitecoin() error {
+func (r *CreateTransferRequest) validateLitecoin() error {
 	if r.Kind != nil {
 		return fmt.Errorf("kind is not supported for the litecoin blockchain")
 	}
@@ -143,7 +237,15 @@ func (r CreateTransferRequest) validateLitecoin() error {
 	return nil
 }
 
-func (r CreateTransferRequest) validateTron(conf *config.Config) error {
+func (r *CreateTransferRequest) validateTron(conf *config.Config) error {
+	// refunds are paid by the hot wallet itself, all transfer kinds use the processing wallet
+	if r.Purpose == constants.TransferPurposeRefund {
+		if r.Kind != nil && *r.Kind != "" {
+			return fmt.Errorf("kind is not supported for tron refunds")
+		}
+		return nil
+	}
+
 	if r.Kind == nil || *r.Kind == "" {
 		return fmt.Errorf("kind is required for the tron transfers")
 	}
@@ -159,7 +261,7 @@ func (r CreateTransferRequest) validateTron(conf *config.Config) error {
 	return nil
 }
 
-func (r CreateTransferRequest) validateEVM() error {
+func (r *CreateTransferRequest) validateEVM() error {
 	if r.Kind != nil {
 		return fmt.Errorf("kind is not supported for the %s blockchain", r.Blockchain.String())
 	}

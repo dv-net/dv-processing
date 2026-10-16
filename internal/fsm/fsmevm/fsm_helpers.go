@@ -3,6 +3,7 @@ package fsmevm
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -112,11 +114,33 @@ func (s *FSM) createTransferStepWh(ctx context.Context, step *workflow.Step) err
 	return nil
 }
 
+// txSentAt returns the time the transaction was broadcast: the creation of its system transaction,
+// which is saved right before the broadcast. Falls back to the transfer creation time.
+func (s *FSM) txSentAt(ctx context.Context, txHash string) (time.Time, error) {
+	txs, err := s.st.TransferTransactions().GetAllByTransfer(ctx, s.transfer.ID)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("get transfer transactions: %w", err)
+	}
+
+	for _, tx := range txs {
+		if strings.EqualFold(tx.TxHash, txHash) && tx.CreatedAt.Valid {
+			return tx.CreatedAt.Time, nil
+		}
+	}
+
+	return s.transfer.CreatedAt.Time, nil
+}
+
 func (s *FSM) ensureTxInBlockchain(ctx context.Context, txHash string) error {
 	// get transaction info
+	sentAt, err := s.txSentAt(ctx, txHash)
+	if err != nil {
+		return err
+	}
+
 	tx, err := s.bs.EProxy().GetTransactionInfo(ctx, s.transfer.Blockchain, txHash)
 	if err != nil {
-		if s.transfer.CreatedAt.Valid && time.Since(s.transfer.CreatedAt.Time) > 1*time.Hour {
+		if time.Since(sentAt) > 1*time.Hour {
 			if err = s.updateSystemTransactionStatus(ctx, tx, models.TransferTransactionsStatusFailed); err != nil {
 				return newErrFailedTransfer(err)
 			}
@@ -361,17 +385,7 @@ func (s *FSM) sendBaseAsset(ctx context.Context, wCreds *walletCreds, toAddress 
 		"estimated_data":                  estimateResult,
 	}
 
-	if err = pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
-		if err = s.initPendingSystemTransaction(ctx, signedTx.Hash().Hex(), dbTx); err != nil {
-			return fmt.Errorf("create system transaction: %w", err)
-		}
-
-		if err = s.evm.Node().SendTransaction(ctx, signedTx); err != nil {
-			return fmt.Errorf("send transaction: %w", err)
-		}
-
-		return nil
-	}); err != nil {
+	if err = s.broadcast(ctx, signedTx); err != nil {
 		return nil, nil, err
 	}
 
@@ -448,19 +462,15 @@ func (s *FSM) sendERC20(ctx context.Context, wCreds *walletCreds, contractAddres
 		return nil, nil, fmt.Errorf("create erc20 transactor: %w", err)
 	}
 
-	var tx *types.Transaction
-	if err = pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
-		tx, err = transactor.Transfer(auth, common.HexToAddress(toAddress), amount.BigInt())
-		if err != nil {
-			return fmt.Errorf("create transfer tx: %w", err)
-		}
+	// sign only, the transaction is broadcast after its system transaction is saved
+	auth.NoSend = true
 
-		if err = s.initPendingSystemTransaction(ctx, tx.Hash().Hex(), dbTx); err != nil {
-			return fmt.Errorf("create system transaction: %w", err)
-		}
+	tx, err := transactor.Transfer(auth, common.HexToAddress(toAddress), amount.BigInt())
+	if err != nil {
+		return nil, nil, fmt.Errorf("create transfer tx: %w", err)
+	}
 
-		return nil
-	}); err != nil {
+	if err = s.broadcast(ctx, tx); err != nil {
 		return nil, nil, err
 	}
 
@@ -471,24 +481,93 @@ func (s *FSM) stringForBaseAsset(template string) string {
 	return fmt.Sprintf(template, s.evm.Blockchain().GetAssetIdentifier())
 }
 
-// initPendingSystemTransaction create system transaction with pending status
-func (s *FSM) initPendingSystemTransaction(ctx context.Context, hash string, dbTx pgx.Tx) error {
-	txType, err := s.prepareTransferTransactionTypeByStep()
-	if err != nil {
-		return fmt.Errorf("prepare transfer transaction type: %w", err)
+// broadcast saves the pending system transaction and only then sends the signed transaction.
+//
+// The system transaction is committed before the broadcast: if the process fails after the broadcast,
+// the record exists, the sending step is retried instead of failing the transfer (see the failure
+// handler of the workflow) and the transaction is never sent twice (see sending).
+//
+// For the transfer transaction itself broadcast_at is set as well: a failed refund which may be
+// in the network keeps the refunded deposit locked.
+func (s *FSM) broadcast(ctx context.Context, signedTx *types.Transaction) error {
+	isTransferTx := s.wf.CurrentStep() != nil && s.wf.CurrentStep().Name == stepSending
+
+	var systemTx *models.TransferTransaction
+	if err := pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
+		var err error
+		systemTx, err = s.initPendingSystemTransaction(ctx, signedTx.Hash().Hex(), dbTx)
+		if err != nil {
+			return fmt.Errorf("create system transaction: %w", err)
+		}
+
+		if isTransferTx {
+			if err := s.bs.Transfers().SetBroadcastAt(ctx, s.transfer.ID, repos.WithTx(dbTx)); err != nil {
+				return fmt.Errorf("set broadcast at: %w", err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 
-	if _, err = s.st.TransferTransactions(repos.WithTx(dbTx)).Create(ctx, repo_transfer_transactions.CreateParams{
+	sendErr := s.evm.Node().SendTransaction(ctx, signedTx)
+	if sendErr == nil {
+		return nil
+	}
+
+	// the node already has the transaction in the mempool
+	if strings.Contains(strings.ToLower(sendErr.Error()), "already known") {
+		return nil
+	}
+
+	// A json-rpc error is an explicit rejection by the node: the transaction is not in the network,
+	// the system transaction is failed and the transfer can be failed safely.
+	// Any other error (timeout, connection reset) is ambiguous: the records are kept,
+	// the step is retried and the transaction is tracked by its hash.
+	var rpcErr rpc.Error
+	if !errors.As(sendErr, &rpcErr) {
+		return fmt.Errorf("send transaction: %w", sendErr)
+	}
+
+	if err := pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
+		if err := s.st.TransferTransactions(repos.WithTx(dbTx)).Delete(ctx, systemTx.ID); err != nil {
+			return fmt.Errorf("delete rejected system transaction: %w", err)
+		}
+
+		if isTransferTx {
+			if err := s.bs.Transfers().ClearBroadcastAt(ctx, s.transfer.ID, repos.WithTx(dbTx)); err != nil {
+				return fmt.Errorf("clear broadcast at: %w", err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("send transaction: %w, rollback system transaction: %w", sendErr, err)
+	}
+
+	return fmt.Errorf("send transaction rejected by node: %w", sendErr)
+}
+
+// initPendingSystemTransaction create system transaction with pending status
+func (s *FSM) initPendingSystemTransaction(ctx context.Context, hash string, dbTx pgx.Tx) (*models.TransferTransaction, error) {
+	txType, err := s.prepareTransferTransactionTypeByStep()
+	if err != nil {
+		return nil, fmt.Errorf("prepare transfer transaction type: %w", err)
+	}
+
+	systemTx, err := s.st.TransferTransactions(repos.WithTx(dbTx)).Create(ctx, repo_transfer_transactions.CreateParams{
 		TransferID: s.transfer.ID,
 		TxHash:     hash,
 		TxType:     *txType,
 		Status:     models.TransferTransactionsStatusPending,
 		Step:       s.wf.CurrentStep().Name,
-	}); err != nil {
-		return fmt.Errorf("create transfer transaction: %w", err)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create transfer transaction: %w", err)
 	}
 
-	return nil
+	return systemTx, nil
 }
 
 // updateSystemTransactionStatus extracts and combines transaction expenses for ab EVM transactions.

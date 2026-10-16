@@ -118,6 +118,40 @@ func (s *Service) SetStatus(ctx context.Context, transferID uuid.UUID, status co
 	return s.store.Transfers(opts...).SetStatus(ctx, transferID, status)
 }
 
+// SetBroadcastAt marks that the transfer transaction is being sent to the network.
+// A failed refund with broadcast_at keeps the refunded deposit locked, see transfers_refund_source_uniq_idx.
+func (s *Service) SetBroadcastAt(ctx context.Context, transferID uuid.UUID, opts ...repos.Option) error {
+	if transferID == uuid.Nil {
+		return storecmn.ErrEmptyID
+	}
+
+	return s.store.Transfers(opts...).SetBroadcastAt(ctx, transferID)
+}
+
+// ClearBroadcastAt resets broadcast_at when the node rejected the transfer transaction
+func (s *Service) ClearBroadcastAt(ctx context.Context, transferID uuid.UUID, opts ...repos.Option) error {
+	if transferID == uuid.Nil {
+		return storecmn.ErrEmptyID
+	}
+
+	return s.store.Transfers(opts...).ClearBroadcastAt(ctx, transferID)
+}
+
+// SetProcessingIfNew sets the processing status if the transfer is still new.
+// Returns false if the transfer was already taken or canceled.
+func (s *Service) SetProcessingIfNew(ctx context.Context, transferID uuid.UUID, opts ...repos.Option) (bool, error) {
+	if transferID == uuid.Nil {
+		return false, storecmn.ErrEmptyID
+	}
+
+	rows, err := s.store.Transfers(opts...).SetProcessingIfNew(ctx, transferID)
+	if err != nil {
+		return false, err
+	}
+
+	return rows > 0, nil
+}
+
 // SetWorkflowSnapshot sets the workflow snapshot for the transfer.
 func (s *Service) SetWorkflowSnapshot(ctx context.Context, transferID uuid.UUID, snapshot workflow.Snapshot, opts ...repos.Option) error {
 	if transferID == uuid.Nil {

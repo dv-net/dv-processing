@@ -11,23 +11,35 @@ type RPCCode uint32
 func (c RPCCode) String() string { return fmt.Sprintf("%d", c) }
 
 const (
-	RPCCodeNotEnoughResources   RPCCode = 3000
-	RPCCodeAddressIsTaken       RPCCode = 3001
-	RPCCodeMaxFeeExceeded       RPCCode = 3002
-	RPCCodeServiceUnavailable   RPCCode = 3003
-	RPCCodeNotEnoughBalance     RPCCode = 3004
-	RPCCodeBlockchainIsDisabled RPCCode = 4000
-	RPCCodeAddressEmptyBalance  RPCCode = 4001
+	RPCCodeNotEnoughResources    RPCCode = 3000
+	RPCCodeAddressIsTaken        RPCCode = 3001
+	RPCCodeMaxFeeExceeded        RPCCode = 3002
+	RPCCodeServiceUnavailable    RPCCode = 3003
+	RPCCodeNotEnoughBalance      RPCCode = 3004
+	RPCCodeBlockchainIsDisabled  RPCCode = 4000
+	RPCCodeAddressEmptyBalance   RPCCode = 4001
+	RPCCodeTwoFactorRequired     RPCCode = 5000
+	RPCCodeTwoFactorInvalid      RPCCode = 5001
+	RPCCodeRefundSourceInvalid   RPCCode = 5002
+	RPCCodeRefundAlreadyExists   RPCCode = 5003
+	RPCCodeTransferNotCancelable RPCCode = 5004
+	RPCCodeRefundInsufficientFee RPCCode = 5005
 )
 
 var RPCCodes = map[RPCCode]error{
-	RPCCodeNotEnoughResources:   errors.New("not enough resources"),
-	RPCCodeAddressIsTaken:       errors.New("the address is occupied by another transaction"),
-	RPCCodeMaxFeeExceeded:       errors.New("max fee value exceeded"),
-	RPCCodeBlockchainIsDisabled: errors.New("blockchain is disabled"),
-	RPCCodeAddressEmptyBalance:  errors.New("address empty balance"),
-	RPCCodeNotEnoughBalance:     errors.New("not enough balance"),
-	RPCCodeServiceUnavailable:   errors.New("service unavailable"),
+	RPCCodeNotEnoughResources:    errors.New("not enough resources"),
+	RPCCodeAddressIsTaken:        errors.New("the address is occupied by another transaction"),
+	RPCCodeMaxFeeExceeded:        errors.New("max fee value exceeded"),
+	RPCCodeBlockchainIsDisabled:  errors.New("blockchain is disabled"),
+	RPCCodeAddressEmptyBalance:   errors.New("address empty balance"),
+	RPCCodeNotEnoughBalance:      errors.New("not enough balance"),
+	RPCCodeServiceUnavailable:    errors.New("service unavailable"),
+	RPCCodeTwoFactorRequired:     errors.New("two-factor authentication is required"),
+	RPCCodeTwoFactorInvalid:      errors.New("two-factor authentication is invalid"),
+	RPCCodeRefundSourceInvalid:   errors.New("refund source is invalid"),
+	RPCCodeRefundAlreadyExists:   errors.New("refund already exists"),
+	RPCCodeTransferNotCancelable: errors.New("transfer is not cancelable"),
+	RPCCodeRefundInsufficientFee: errors.New("not enough native coin on the address to pay the refund fee"),
 }
 
 func GetErrorByCode(code RPCCode) error {

@@ -3,7 +3,6 @@ package fsmevm
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sync"
 
 	"github.com/shopspring/decimal"
@@ -29,20 +28,9 @@ func (s *FSM) validateRequest(ctx context.Context, _ *workflow.Workflow, _ *work
 		return fmt.Errorf("asset identifier is empty")
 	}
 
-	// check cold or processing wallet
-	if s.transfer.WalletFromType == constants.WalletTypeHot {
-		checkResult, err := s.bs.Wallets().CheckWallet(ctx, s.evm.Blockchain(), s.transfer.GetToAddress())
-		if err != nil {
-			return fmt.Errorf("check wallet: %w", err)
-		}
-
-		if !slices.Contains([]constants.WalletType{constants.WalletTypeCold, constants.WalletTypeProcessing}, checkResult.WalletType) {
-			return fmt.Errorf("invalid wallet type %s", checkResult.WalletType)
-		}
-
-		if checkResult.OwnerID != s.transfer.OwnerID {
-			return fmt.Errorf("invalid wallet owner %s", checkResult.OwnerID)
-		}
+	// check destination: owner's cold / processing wallet or external address for withdrawals and refunds
+	if err := s.bs.Wallets().ValidateTransferDestination(ctx, s.transfer); err != nil {
+		return fmt.Errorf("validate transfer destination: %w", err)
 	}
 
 	if s.transfer.WalletFromType == constants.WalletTypeHot && //nolint:nestif
@@ -169,6 +157,15 @@ func (s *FSM) sendBaseAssetForBurn(ctx context.Context, wf *workflow.Workflow, _
 	if !needFeeBaseAssetAmount.IsPositive() {
 		wf.State.SetNextStage(stageSending).SetNextStep(stepSending)
 		return nil
+	}
+
+	// refunds are paid by the hot wallet itself, the processing wallet must not top it up
+	if s.transfer.IsRefund() {
+		return fmt.Errorf(
+			"%w: %s balance %s, fee %s",
+			rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee),
+			s.evm.Blockchain().GetAssetIdentifier(), hotWalletBaseAssetAmount, transferFeeBaseAssetAmount,
+		)
 	}
 
 	// if processing wallet balance is less than fee amount

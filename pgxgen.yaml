@@ -68,6 +68,12 @@ schemas:
                 - column: transfers.state_data
                   go_type:
                     type: map[string]any
+                - column: transfers.purpose
+                  go_type:
+                    type: constants.TransferPurpose
+                - column: transfers.wallet_to_type
+                  go_type:
+                    type: "*constants.WalletType"
                 - column: transfer_transactions.tx_type
                   go_type:
                     type: TransferTransactionType

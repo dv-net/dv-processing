@@ -17,6 +17,9 @@ service TransferService {
   rpc Cancel(CancelRequest) returns (CancelResponse);
   // Execute a scheduled transfer immediately, confirmed by owner's TOTP
   rpc ExecuteNow(ExecuteNowRequest) returns (ExecuteNowResponse);
+  // Check that a refund can be created: the deposit is valid and the hot wallet
+  // pays the network fee by itself. Nothing is created, TOTP is not checked
+  rpc CheckRefund(CheckRefundRequest) returns (CheckRefundResponse);
 }
 
 // Transfer status
@@ -60,7 +63,8 @@ enum TransferPurpose {
   // Withdrawal to an external address, requires TOTP and is executed immediately
   TRANSFER_PURPOSE_WITHDRAWAL = 1;
   // Refund of an incoming deposit (source_tx_hash) from a hot wallet.
-  // Without TOTP it is executed after the configured cooldown, with TOTP - immediately
+  // Without TOTP it is allowed only back to the sender of the deposit and is executed
+  // after the configured cooldown. With TOTP - to any external address, immediately
   TRANSFER_PURPOSE_REFUND = 2;
 }
 
@@ -151,8 +155,8 @@ message CreateRequest {
   // Required for refunds: hash of the incoming deposit to the from address.
   // Amount must not exceed the deposited amount, one active refund per deposit
   optional string source_tx_hash = 13;
-  // Owner's TOTP code. Required for withdrawals to external addresses,
-  // optional for refunds (skips the cooldown)
+  // Owner's TOTP code. Required for withdrawals to external addresses and refunds
+  // to addresses other than the deposit sender. For refunds to the sender it skips the cooldown
   optional string totp = 14;
 }
 
@@ -184,6 +188,34 @@ message ExecuteNowRequest {
 }
 
 message ExecuteNowResponse { Transfer item = 1; }
+
+/*
+
+  Check refund
+
+*/
+
+message CheckRefundRequest {
+  string owner_id = 1;
+  common.v1.Blockchain blockchain = 2;
+  // Hot wallet address which received the deposit
+  string from_address = 3;
+  string to_address = 4;
+  string asset_identifier = 5;
+  string amount = 6;
+  // Hash of the refunded deposit
+  string source_tx_hash = 7;
+}
+
+message CheckRefundResponse {
+  // Estimated network fee paid by the hot wallet in the native coin.
+  // Empty if it is calculated only on sending (btc like blockchains)
+  optional string estimated_fee = 1;
+  // The fee is subtracted from the refund amount (refunds of the native coin)
+  bool fee_from_amount = 2;
+  // The destination is the sender of the deposit: the refund does not require TOTP
+  bool to_sender = 3;
+}
 
 /*
 

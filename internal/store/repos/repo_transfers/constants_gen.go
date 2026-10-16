@@ -35,26 +35,32 @@ func (s ColumnNames) Strings() []string {
 }
 
 const (
-	ColumnNameTransfersId               ColumnName = "id"
-	ColumnNameTransfersStatus           ColumnName = "status"
-	ColumnNameTransfersClientId         ColumnName = "client_id"
-	ColumnNameTransfersOwnerId          ColumnName = "owner_id"
-	ColumnNameTransfersRequestId        ColumnName = "request_id"
-	ColumnNameTransfersBlockchain       ColumnName = "blockchain"
-	ColumnNameTransfersFromAddresses    ColumnName = "from_addresses"
-	ColumnNameTransfersToAddresses      ColumnName = "to_addresses"
-	ColumnNameTransfersWalletFromType   ColumnName = "wallet_from_type"
-	ColumnNameTransfersAssetIdentifier  ColumnName = "asset_identifier"
-	ColumnNameTransfersKind             ColumnName = "kind"
-	ColumnNameTransfersWholeAmount      ColumnName = "whole_amount"
-	ColumnNameTransfersAmount           ColumnName = "amount"
-	ColumnNameTransfersFee              ColumnName = "fee"
-	ColumnNameTransfersFeeMax           ColumnName = "fee_max"
-	ColumnNameTransfersTxHash           ColumnName = "tx_hash"
-	ColumnNameTransfersCreatedAt        ColumnName = "created_at"
-	ColumnNameTransfersUpdatedAt        ColumnName = "updated_at"
-	ColumnNameTransfersStateData        ColumnName = "state_data"
-	ColumnNameTransfersWorkflowSnapshot ColumnName = "workflow_snapshot"
+	ColumnNameTransfersId                   ColumnName = "id"
+	ColumnNameTransfersStatus               ColumnName = "status"
+	ColumnNameTransfersClientId             ColumnName = "client_id"
+	ColumnNameTransfersOwnerId              ColumnName = "owner_id"
+	ColumnNameTransfersRequestId            ColumnName = "request_id"
+	ColumnNameTransfersBlockchain           ColumnName = "blockchain"
+	ColumnNameTransfersFromAddresses        ColumnName = "from_addresses"
+	ColumnNameTransfersToAddresses          ColumnName = "to_addresses"
+	ColumnNameTransfersWalletFromType       ColumnName = "wallet_from_type"
+	ColumnNameTransfersAssetIdentifier      ColumnName = "asset_identifier"
+	ColumnNameTransfersKind                 ColumnName = "kind"
+	ColumnNameTransfersWholeAmount          ColumnName = "whole_amount"
+	ColumnNameTransfersAmount               ColumnName = "amount"
+	ColumnNameTransfersFee                  ColumnName = "fee"
+	ColumnNameTransfersFeeMax               ColumnName = "fee_max"
+	ColumnNameTransfersTxHash               ColumnName = "tx_hash"
+	ColumnNameTransfersCreatedAt            ColumnName = "created_at"
+	ColumnNameTransfersUpdatedAt            ColumnName = "updated_at"
+	ColumnNameTransfersStateData            ColumnName = "state_data"
+	ColumnNameTransfersWorkflowSnapshot     ColumnName = "workflow_snapshot"
+	ColumnNameTransfersPurpose              ColumnName = "purpose"
+	ColumnNameTransfersSourceTxHash         ColumnName = "source_tx_hash"
+	ColumnNameTransfersWalletToType         ColumnName = "wallet_to_type"
+	ColumnNameTransfersExecuteAfter         ColumnName = "execute_after"
+	ColumnNameTransfersTwoFactorConfirmedAt ColumnName = "two_factor_confirmed_at"
+	ColumnNameTransfersBroadcastAt          ColumnName = "broadcast_at"
 )
 
 func TransfersColumnNames() ColumnNames {
@@ -79,5 +85,11 @@ func TransfersColumnNames() ColumnNames {
 		ColumnNameTransfersUpdatedAt,
 		ColumnNameTransfersStateData,
 		ColumnNameTransfersWorkflowSnapshot,
+		ColumnNameTransfersPurpose,
+		ColumnNameTransfersSourceTxHash,
+		ColumnNameTransfersWalletToType,
+		ColumnNameTransfersExecuteAfter,
+		ColumnNameTransfersTwoFactorConfirmedAt,
+		ColumnNameTransfersBroadcastAt,
 	}
 }

@@ -16,6 +16,9 @@ type EventTransferStatusPayload struct {
 	Step               string                        `json:"step"`
 	SystemTransactions []*models.TransferTransaction `json:"system_transactions"`
 	ErrorMessage       string                        `json:"error_message,omitempty"`
+	// Broadcast is true when the transfer transaction was sent to the network (or its result is unknown).
+	// A failed transfer with Broadcast may still be mined and must not be repeated automatically
+	Broadcast bool `json:"broadcast"`
 }
 
 func (p EventTransferStatusPayload) RawMessage() (*bytes.Buffer, error) { return rawMessage(p) }

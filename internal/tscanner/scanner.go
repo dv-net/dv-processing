@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/internal/store/repos"
 	"github.com/dv-net/dv-processing/internal/taskmanager"
@@ -44,22 +43,21 @@ func (s *TScanner) processAllNewTransfers(ctx context.Context) error {
 
 // handleTransfer adds a transfer to the task manager and sets the transfer status to processing.
 func (s *TScanner) handleTransfer(ctx context.Context, dbTx pgx.Tx, transfer *models.Transfer) error {
-	_, err := s.tm.Client().InsertTx(ctx, dbTx,
-		taskmanager.TransferWorkflowArgs{
-			TransferID: transfer.ID,
-		},
-		&river.InsertOpts{
-			// UniqueOpts: river.UniqueOpts{
-			// 	ByArgs: true,
-			// },
-		},
-	)
+	ok, err := s.bs.Transfers().SetProcessingIfNew(ctx, transfer.ID, repos.WithTx(dbTx))
 	if err != nil {
-		return fmt.Errorf("insert transfer workflow job: %w", err)
+		return fmt.Errorf("set transfer status: %w", err)
 	}
 
-	if err := s.bs.Transfers().SetStatus(ctx, transfer.ID, constants.TransferStatusProcessing, repos.WithTx(dbTx)); err != nil {
-		return fmt.Errorf("set transfer status: %w", err)
+	// transfer was canceled or taken after FindAllNewTransfers
+	if !ok {
+		return nil
+	}
+
+	if _, err := s.tm.Client().InsertTx(ctx, dbTx,
+		taskmanager.TransferWorkflowArgs{TransferID: transfer.ID},
+		&river.InsertOpts{},
+	); err != nil {
+		return fmt.Errorf("insert transfer workflow job: %w", err)
 	}
 
 	return nil

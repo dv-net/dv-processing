@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -13,7 +13,6 @@ import (
 	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/internal/store/repos/repo_transfers"
-	"github.com/dv-net/dv-processing/internal/store/storecmn"
 	"github.com/dv-net/dv-processing/pkg/dbutils/pgtypeutils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 )
@@ -33,13 +32,27 @@ type CreateTransferRequest struct {
 
 	stateData map[string]any
 
-	walletFromType constants.WalletType
+	Purpose      constants.TransferPurpose `json:"purpose"`
+	SourceTxHash *string                   `json:"source_tx_hash"`
+	TOTP         string                    `json:"-"`
 
-	walletToType constants.WalletType
+	// refundToSender is set when the refund destination is the sender of the deposit
+	refundToSender bool
+	// refundEstimatedFee is the network fee paid by the hot wallet for the refund, in the native coin
+	refundEstimatedFee *decimal.Decimal
+	// dryRun runs all checks of the transfer without creating it and without TOTP checks
+	dryRun bool
+
+	walletFromType       constants.WalletType
+	walletToType         constants.WalletType
+	executeAfter         *time.Time
+	twoFactorConfirmedAt *time.Time
 }
 
 // Create transfer
 func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*models.Transfer, error) {
+	req.normalize()
+
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -56,6 +69,11 @@ func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*model
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
+	// network and TOTP checks are done before the lock to not block other transfers
+	if err := s.preparePurpose(ctx, &req); err != nil {
+		return nil, fmt.Errorf("prepare %s transfer: %w", req.Purpose, err)
+	}
+
 	s.locker.L.Lock()
 	for s.isLocked.Load() {
 		s.locker.Wait()
@@ -70,6 +88,59 @@ func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*model
 		s.locker.L.Unlock()
 	}()
 
+	owner, err := s.checkTransfer(ctx, &req)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.stateData == nil {
+		req.stateData = make(map[string]any)
+	}
+
+	// set wallet to type
+	req.stateData["wallet_to_type"] = req.walletToType
+
+	if req.Purpose == constants.TransferPurposeRefund {
+		req.stateData["refund_to_sender"] = req.refundToSender
+	}
+
+	createParams := repo_transfers.CreateParams{
+		Status:               constants.TransferStatusNew,
+		OwnerID:              owner.ID,
+		ClientID:             owner.ClientID,
+		RequestID:            req.RequestID,
+		Blockchain:           req.Blockchain,
+		FromAddresses:        req.FromAddresses,
+		ToAddresses:          req.ToAddresses,
+		WalletFromType:       req.walletFromType,
+		Kind:                 pgtypeutils.EncodeText(req.Kind),
+		AssetIdentifier:      req.AssetIdentifier,
+		WholeAmount:          req.WholeAmount,
+		Amount:               req.Amount,
+		Fee:                  req.Fee,
+		FeeMax:               req.FeeMax,
+		StateData:            req.stateData,
+		Purpose:              req.Purpose,
+		SourceTxHash:         pgtypeutils.EncodeText(req.SourceTxHash),
+		ExecuteAfter:         encodeTimestamptz(req.executeAfter),
+		TwoFactorConfirmedAt: encodeTimestamptz(req.twoFactorConfirmedAt),
+	}
+
+	// wallet to type is unknown for transfers from processing wallets
+	if req.walletToType != "" {
+		createParams.WalletToType = &req.walletToType
+	}
+
+	newTransfer, err := s.store.Transfers().Create(ctx, createParams)
+	if err != nil {
+		return nil, convertCreateError(err)
+	}
+
+	return newTransfer, nil
+}
+
+// checkTransfer checks the owner, wallets and balances of the transfer by blockchain
+func (s *Service) checkTransfer(ctx context.Context, req *CreateTransferRequest) (*models.Owner, error) {
 	// check owner
 	owner, err := s.store.Owners().GetByID(ctx, req.OwnerID)
 	if err != nil {
@@ -98,25 +169,15 @@ func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*model
 		}
 	}
 
+	// withdrawals and refunds are sent from hot wallets only
+	if req.Purpose != constants.TransferPurposeDefault && req.walletFromType != constants.WalletTypeHot {
+		return nil, fmt.Errorf("%s transfer is allowed from hot wallet only, got %s", req.Purpose, req.walletFromType)
+	}
+
 	// check to addresses and get wallet to type
-	for idx, toAddress := range req.ToAddresses {
-		if req.walletFromType == constants.WalletTypeProcessing {
-			continue
-		}
-
-		checkResult, err := s.walletsSvc.CheckWallet(ctx, req.Blockchain, toAddress)
-		if err != nil {
-			return nil, fmt.Errorf("check wallet to for blockchain %s and address %s: %w", req.Blockchain, toAddress, err)
-		}
-
-		if checkResult.OwnerID != req.OwnerID {
-			return nil, fmt.Errorf("invalid wallet owner %s", req.OwnerID)
-		}
-
-		if idx == 0 {
-			req.walletToType = checkResult.WalletType
-		} else if req.walletToType != checkResult.WalletType {
-			return nil, fmt.Errorf("different wallet types in to addresses")
+	if req.walletFromType != constants.WalletTypeProcessing {
+		if err := s.resolveWalletTo(ctx, req); err != nil {
+			return nil, err
 		}
 	}
 
@@ -140,9 +201,10 @@ func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*model
 			return nil, fmt.Errorf("invalid wallet to type %s", req.walletToType)
 		}
 
-		// available wallet to types for transfer from hot wallet: cold and processing
+		// available wallet to types for transfer from hot wallet: cold, processing
+		// and external for withdrawals and refunds (checked in resolveWalletTo)
 		if req.walletFromType == constants.WalletTypeHot &&
-			!slices.Contains([]constants.WalletType{constants.WalletTypeCold, constants.WalletTypeProcessing}, req.walletToType) {
+			!slices.Contains([]constants.WalletType{constants.WalletTypeCold, constants.WalletTypeProcessing, constants.WalletTypeExternal}, req.walletToType) {
 			return nil, fmt.Errorf("invalid wallet to type %s", req.walletToType)
 		}
 	}
@@ -153,11 +215,11 @@ func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*model
 		wconstants.BlockchainTypeLitecoin,
 		wconstants.BlockchainTypeBitcoinCash,
 		wconstants.BlockchainTypeDogecoin:
-		if err := s.processBTCLike(ctx, &req); err != nil {
+		if err := s.processBTCLike(ctx, req); err != nil {
 			return nil, fmt.Errorf("process %s: %w", req.Blockchain, err)
 		}
 	case wconstants.BlockchainTypeTron:
-		if err := s.processTron(ctx, &req); err != nil {
+		if err := s.processTron(ctx, req); err != nil {
 			return nil, fmt.Errorf("process tron: %w", err)
 		}
 	case wconstants.BlockchainTypeEthereum,
@@ -166,43 +228,10 @@ func (s *Service) Create(ctx context.Context, req CreateTransferRequest) (*model
 		wconstants.BlockchainTypeArbitrum,
 		wconstants.BlockchainTypeOptimism,
 		wconstants.BlockchainTypeLinea:
-		if err := s.processEVM(ctx, &req); err != nil {
+		if err := s.processEVM(ctx, req); err != nil {
 			return nil, fmt.Errorf("process evm: %w", err)
 		}
 	}
 
-	if req.stateData == nil {
-		req.stateData = make(map[string]any)
-	}
-
-	// set wallet to type
-	req.stateData["wallet_to_type"] = req.walletToType
-
-	createParams := repo_transfers.CreateParams{
-		Status:          constants.TransferStatusNew,
-		OwnerID:         owner.ID,
-		ClientID:        owner.ClientID,
-		RequestID:       req.RequestID,
-		Blockchain:      req.Blockchain,
-		FromAddresses:   req.FromAddresses,
-		ToAddresses:     req.ToAddresses,
-		WalletFromType:  req.walletFromType,
-		Kind:            pgtypeutils.EncodeText(req.Kind),
-		AssetIdentifier: req.AssetIdentifier,
-		WholeAmount:     req.WholeAmount,
-		Amount:          req.Amount,
-		Fee:             req.Fee,
-		FeeMax:          req.FeeMax,
-		StateData:       req.stateData,
-	}
-
-	newTransfer, err := s.store.Transfers().Create(ctx, createParams)
-	if err != nil {
-		if strings.Contains(err.Error(), "unique") {
-			return nil, storecmn.ErrAlreadyExists
-		}
-		return nil, err
-	}
-
-	return newTransfer, nil
+	return owner, nil
 }

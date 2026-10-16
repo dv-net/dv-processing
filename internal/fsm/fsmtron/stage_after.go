@@ -92,7 +92,8 @@ func (s *FSM) waitingConfirmations(ctx context.Context, _ *workflow.Workflow, _ 
 
 // afterSendingCheckTransferKind checks the transfer kind.
 func (s *FSM) afterSendingCheckTransferKind(_ context.Context, wf *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
-	if s.transfer.WalletFromType == constants.WalletTypeProcessing {
+	// nothing to reclaim for processing wallets and refunds
+	if s.transfer.WalletFromType == constants.WalletTypeProcessing || s.transfer.IsRefund() {
 		wf.State.SetNextStep(stepSendSuccessEvent)
 		return nil
 	}

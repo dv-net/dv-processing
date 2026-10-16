@@ -90,7 +90,7 @@ func New(
 	ownersSvc := owners.New(conf, st, walletsSvc)
 	processedblocksSvc := processedblocks.New(st)
 	processedincidentsSvc := processedincidents.New(st)
-	transfersSvc := transfers.New(l, conf, st, walletsSvc, explorerProxySvc, blockchains, rmanager)
+	transfersSvc := transfers.New(l, conf, st, walletsSvc, explorerProxySvc, blockchains, rmanager, ownersSvc)
 	webhooksSvc := webhooks.New(l, conf, st, transfersSvc, ownersSvc)
 	upd, err := updater.NewService(ctx, l, conf)
 	if err != nil {

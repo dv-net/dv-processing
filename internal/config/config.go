@@ -37,7 +37,8 @@ type Config struct {
 		DisableCheckingSign bool `yaml:"disable_checking_sign" json:"disable_checking_sign" usage:"allows to disable checking sign of request" default:"false" example:"true / false"`
 	}
 	Transfers struct {
-		Enabled bool `yaml:"enabled" json:"enabled" usage:"allows to enable transfers service" default:"true" example:"true / false"`
+		Enabled        bool          `yaml:"enabled" json:"enabled" usage:"allows to enable transfers service" default:"true" example:"true / false"`
+		RefundCooldown time.Duration `json:"refund_cooldown" yaml:"refund_cooldown" usage:"allow set time for holding refunded transfers" default:"6h" example:"24h"`
 	}
 	UseCacheForWallets bool          `yaml:"use_cache_for_wallets" json:"use_cache_for_wallets" usage:"allows to use cache for wallets. this option is experimental" default:"true" example:"true / false"`
 	MerchantAdmin      MerchantAdmin `yaml:"merchant_admin"`

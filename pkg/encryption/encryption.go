@@ -64,7 +64,7 @@ func Encrypt(data, password string) (string, error) {
 	ciphertext := gcm.Seal(nil, nonce, []byte(data), nil)
 
 	// Concatenate salt|nonce|ciphertext
-	var payload []byte
+	payload := make([]byte, 0, len(salt)+len(nonce)+len(ciphertext))
 	payload = append(payload, salt...)
 	payload = append(payload, nonce...)
 	payload = append(payload, ciphertext...)

@@ -63,6 +63,8 @@
 - [processing/transfer/v1/transfer.proto](#processing_transfer_v1_transfer-proto)
     - [CancelRequest](#processing-transfer-v1-CancelRequest)
     - [CancelResponse](#processing-transfer-v1-CancelResponse)
+    - [CheckRefundRequest](#processing-transfer-v1-CheckRefundRequest)
+    - [CheckRefundResponse](#processing-transfer-v1-CheckRefundResponse)
     - [CreateRequest](#processing-transfer-v1-CreateRequest)
     - [CreateResponse](#processing-transfer-v1-CreateResponse)
     - [ExecuteNowRequest](#processing-transfer-v1-ExecuteNowRequest)
@@ -888,6 +890,44 @@ Service which provides system information
 
 
 
+<a name="processing-transfer-v1-CheckRefundRequest"></a>
+
+### CheckRefundRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| owner_id | [string](#string) |  |  |
+| blockchain | [processing.common.v1.Blockchain](#processing-common-v1-Blockchain) |  |  |
+| from_address | [string](#string) |  | Hot wallet address which received the deposit |
+| to_address | [string](#string) |  |  |
+| asset_identifier | [string](#string) |  |  |
+| amount | [string](#string) |  |  |
+| source_tx_hash | [string](#string) |  | Hash of the refunded deposit |
+
+
+
+
+
+
+<a name="processing-transfer-v1-CheckRefundResponse"></a>
+
+### CheckRefundResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| estimated_fee | [string](#string) | optional | Estimated network fee paid by the hot wallet in the native coin. Empty if it is calculated only on sending (btc like blockchains) |
+| fee_from_amount | [bool](#bool) |  | The fee is subtracted from the refund amount (refunds of the native coin) |
+| to_sender | [bool](#bool) |  | The destination is the sender of the deposit: the refund does not require TOTP |
+
+
+
+
+
+
 <a name="processing-transfer-v1-CreateRequest"></a>
 
 ### CreateRequest
@@ -909,7 +949,7 @@ Service which provides system information
 | fee_max | [string](#string) | optional |  |
 | purpose | [TransferPurpose](#processing-transfer-v1-TransferPurpose) |  |  |
 | source_tx_hash | [string](#string) | optional | Required for refunds: hash of the incoming deposit to the from address. Amount must not exceed the deposited amount, one active refund per deposit |
-| totp | [string](#string) | optional | Owner&#39;s TOTP code. Required for withdrawals to external addresses, optional for refunds (skips the cooldown) |
+| totp | [string](#string) | optional | Owner&#39;s TOTP code. Required for withdrawals to external addresses and refunds to addresses other than the deposit sender. For refunds to the sender it skips the cooldown |
 
 
 
@@ -1090,7 +1130,7 @@ Transfer purpose
 | ---- | ------ | ----------- |
 | TRANSFER_PURPOSE_UNSPECIFIED | 0 | Regular transfer between owner&#39;s wallets (hot -&gt; cold/processing, etc.) |
 | TRANSFER_PURPOSE_WITHDRAWAL | 1 | Withdrawal to an external address, requires TOTP and is executed immediately |
-| TRANSFER_PURPOSE_REFUND | 2 | Refund of an incoming deposit (source_tx_hash) from a hot wallet. Without TOTP it is executed after the configured cooldown, with TOTP - immediately |
+| TRANSFER_PURPOSE_REFUND | 2 | Refund of an incoming deposit (source_tx_hash) from a hot wallet. Without TOTP it is allowed only back to the sender of the deposit and is executed after the configured cooldown. With TOTP - to any external address, immediately |
 
 
 
@@ -1155,6 +1195,7 @@ Service which interacts with transfers
 | GetByRequestID | [GetByRequestIDRequest](#processing-transfer-v1-GetByRequestIDRequest) | [GetByRequestIDResponse](#processing-transfer-v1-GetByRequestIDResponse) | Get transfer by request ID |
 | Cancel | [CancelRequest](#processing-transfer-v1-CancelRequest) | [CancelResponse](#processing-transfer-v1-CancelResponse) | Cancel a scheduled transfer before its execute_after is reached |
 | ExecuteNow | [ExecuteNowRequest](#processing-transfer-v1-ExecuteNowRequest) | [ExecuteNowResponse](#processing-transfer-v1-ExecuteNowResponse) | Execute a scheduled transfer immediately, confirmed by owner&#39;s TOTP |
+| CheckRefund | [CheckRefundRequest](#processing-transfer-v1-CheckRefundRequest) | [CheckRefundResponse](#processing-transfer-v1-CheckRefundResponse) | Check that a refund can be created: the deposit is valid and the hot wallet pays the network fee by itself. Nothing is created, TOTP is not checked |
 
  
 

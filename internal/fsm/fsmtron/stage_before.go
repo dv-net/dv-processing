@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/fbsobreira/gotron-sdk/pkg/common"
@@ -21,6 +20,7 @@ import (
 	"github.com/dv-net/dv-processing/pkg/utils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/tron"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
+	"github.com/dv-net/dv-processing/rpccode"
 )
 
 // validateRequest
@@ -37,24 +37,18 @@ func (s *FSM) validateRequest(ctx context.Context, _ *workflow.Workflow, _ *work
 		return fmt.Errorf("asset identifier is empty")
 	}
 
-	if _, err := getTransferKind(s.transfer.Kind.String); err != nil {
+	// refunds have no kind: they never use resources of the processing wallet
+	if s.transfer.IsRefund() {
+		if s.transfer.Kind.String != "" {
+			return fmt.Errorf("kind %s is not supported for refunds", s.transfer.Kind.String)
+		}
+	} else if _, err := getTransferKind(s.transfer.Kind.String); err != nil {
 		return err
 	}
 
-	// check cold or processing wallet
-	if s.transfer.WalletFromType == constants.WalletTypeHot {
-		checkResult, err := s.bs.Wallets().CheckWallet(ctx, wconstants.BlockchainTypeTron, s.transfer.GetToAddress())
-		if err != nil {
-			return fmt.Errorf("check wallet: %w", err)
-		}
-
-		if !slices.Contains([]constants.WalletType{constants.WalletTypeCold, constants.WalletTypeProcessing}, checkResult.WalletType) {
-			return fmt.Errorf("invalid wallet type %s", checkResult.WalletType)
-		}
-
-		if checkResult.OwnerID != s.transfer.OwnerID {
-			return fmt.Errorf("invalid wallet owner %s", checkResult.OwnerID)
-		}
+	// check destination: owner's cold / processing wallet or external address for withdrawals and refunds
+	if err := s.bs.Wallets().ValidateTransferDestination(ctx, s.transfer); err != nil {
+		return fmt.Errorf("validate transfer destination: %w", err)
 	}
 
 	return s.setTransferStatus(ctx, constants.TransferStatusProcessing)
@@ -62,6 +56,21 @@ func (s *FSM) validateRequest(ctx context.Context, _ *workflow.Workflow, _ *work
 
 // checkActivateWallet
 func (s *FSM) checkActivateWallet(ctx context.Context, w *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
+	// refunds are sent by the hot wallet itself: no activation, burn or delegation from the processing wallet
+	if s.transfer.IsRefund() {
+		isActivated, err := s.tron.CheckIsWalletActivated(s.transfer.GetFromAddress())
+		if err != nil {
+			return fmt.Errorf("check is wallet activated: %w", err)
+		}
+
+		if !isActivated {
+			return fmt.Errorf("%w: hot wallet %s is not activated", rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), s.transfer.GetFromAddress())
+		}
+
+		w.State.SetNextStage(stageSending).SetNextStep(stepSending)
+		return nil
+	}
+
 	// if trx transfer, skip activation and go to the check transfer kind step
 	if s.transfer.AssetIdentifier == tron.TrxAssetIdentifier {
 		w.State.SetNextStep(stepBeforeSendingCheckTransferKind)

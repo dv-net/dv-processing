@@ -17,6 +17,7 @@ const (
 	RiverJobStateCancelled RiverJobState = "cancelled"
 	RiverJobStateCompleted RiverJobState = "completed"
 	RiverJobStateDiscarded RiverJobState = "discarded"
+	RiverJobStatePending   RiverJobState = "pending"
 	RiverJobStateRetryable RiverJobState = "retryable"
 	RiverJobStateRunning   RiverJobState = "running"
 	RiverJobStateScheduled RiverJobState = "scheduled"
@@ -28,6 +29,7 @@ func (e RiverJobState) Valid() bool {
 		RiverJobStateCancelled,
 		RiverJobStateCompleted,
 		RiverJobStateDiscarded,
+		RiverJobStatePending,
 		RiverJobStateRetryable,
 		RiverJobStateRunning,
 		RiverJobStateScheduled:
@@ -181,26 +183,32 @@ type Setting struct {
 }
 
 type Transfer struct {
-	ID               uuid.UUID                 `db:"id" json:"id"`
-	Status           constants.TransferStatus  `db:"status" json:"status"`
-	ClientID         uuid.UUID                 `db:"client_id" json:"client_id"`
-	OwnerID          uuid.UUID                 `db:"owner_id" json:"owner_id"`
-	RequestID        string                    `db:"request_id" json:"request_id"`
-	Blockchain       wconstants.BlockchainType `db:"blockchain" json:"blockchain"`
-	FromAddresses    []string                  `db:"from_addresses" json:"from_addresses"`
-	ToAddresses      []string                  `db:"to_addresses" json:"to_addresses"`
-	WalletFromType   constants.WalletType      `db:"wallet_from_type" json:"wallet_from_type"`
-	AssetIdentifier  string                    `db:"asset_identifier" json:"asset_identifier"`
-	Kind             pgtype.Text               `db:"kind" json:"kind"`
-	WholeAmount      bool                      `db:"whole_amount" json:"whole_amount"`
-	Amount           decimal.NullDecimal       `db:"amount" json:"amount"`
-	Fee              decimal.NullDecimal       `db:"fee" json:"fee"`
-	FeeMax           decimal.NullDecimal       `db:"fee_max" json:"fee_max"`
-	TxHash           pgtype.Text               `db:"tx_hash" json:"tx_hash"`
-	CreatedAt        pgtype.Timestamptz        `db:"created_at" json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz        `db:"updated_at" json:"updated_at"`
-	StateData        map[string]any            `db:"state_data" json:"state_data"`
-	WorkflowSnapshot workflow.Snapshot         `db:"workflow_snapshot" json:"workflow_snapshot"`
+	ID                   uuid.UUID                 `db:"id" json:"id"`
+	Status               constants.TransferStatus  `db:"status" json:"status"`
+	ClientID             uuid.UUID                 `db:"client_id" json:"client_id"`
+	OwnerID              uuid.UUID                 `db:"owner_id" json:"owner_id"`
+	RequestID            string                    `db:"request_id" json:"request_id"`
+	Blockchain           wconstants.BlockchainType `db:"blockchain" json:"blockchain"`
+	FromAddresses        []string                  `db:"from_addresses" json:"from_addresses"`
+	ToAddresses          []string                  `db:"to_addresses" json:"to_addresses"`
+	WalletFromType       constants.WalletType      `db:"wallet_from_type" json:"wallet_from_type"`
+	AssetIdentifier      string                    `db:"asset_identifier" json:"asset_identifier"`
+	Kind                 pgtype.Text               `db:"kind" json:"kind"`
+	WholeAmount          bool                      `db:"whole_amount" json:"whole_amount"`
+	Amount               decimal.NullDecimal       `db:"amount" json:"amount"`
+	Fee                  decimal.NullDecimal       `db:"fee" json:"fee"`
+	FeeMax               decimal.NullDecimal       `db:"fee_max" json:"fee_max"`
+	TxHash               pgtype.Text               `db:"tx_hash" json:"tx_hash"`
+	CreatedAt            pgtype.Timestamptz        `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz        `db:"updated_at" json:"updated_at"`
+	StateData            map[string]any            `db:"state_data" json:"state_data"`
+	WorkflowSnapshot     workflow.Snapshot         `db:"workflow_snapshot" json:"workflow_snapshot"`
+	Purpose              constants.TransferPurpose `db:"purpose" json:"purpose"`
+	SourceTxHash         pgtype.Text               `db:"source_tx_hash" json:"source_tx_hash"`
+	WalletToType         *constants.WalletType     `db:"wallet_to_type" json:"wallet_to_type"`
+	ExecuteAfter         pgtype.Timestamptz        `db:"execute_after" json:"execute_after"`
+	TwoFactorConfirmedAt pgtype.Timestamptz        `db:"two_factor_confirmed_at" json:"two_factor_confirmed_at"`
+	BroadcastAt          pgtype.Timestamptz        `db:"broadcast_at" json:"broadcast_at"`
 }
 
 type TransferTransaction struct {
@@ -242,6 +250,6 @@ type WebhookView struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	SentAt      pgtype.Timestamptz `db:"sent_at" json:"sent_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	CallbackUrl pgtype.Text        `db:"callback_url" json:"callback_url"`
-	SecretKey   pgtype.Text        `db:"secret_key" json:"secret_key"`
+	CallbackUrl string             `db:"callback_url" json:"callback_url"`
+	SecretKey   string             `db:"secret_key" json:"secret_key"`
 }

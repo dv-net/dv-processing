@@ -8,6 +8,7 @@ const (
 	WalletTypeCold       WalletType = "cold"
 	WalletTypeHot        WalletType = "hot"
 	WalletTypeProcessing WalletType = "processing"
+	WalletTypeExternal   WalletType = "external"
 )
 
 // String returns the wallet type as a string
@@ -16,7 +17,7 @@ func (w WalletType) String() string { return string(w) }
 // Valid checks if the wallet type is valid
 func (w WalletType) Valid() bool {
 	switch w {
-	case WalletTypeCold, WalletTypeHot, WalletTypeProcessing:
+	case WalletTypeCold, WalletTypeHot, WalletTypeProcessing, WalletTypeExternal:
 		return true
 	}
 	return false

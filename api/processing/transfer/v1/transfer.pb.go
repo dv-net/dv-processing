@@ -220,7 +220,8 @@ const (
 	// Withdrawal to an external address, requires TOTP and is executed immediately
 	TransferPurpose_TRANSFER_PURPOSE_WITHDRAWAL TransferPurpose = 1
 	// Refund of an incoming deposit (source_tx_hash) from a hot wallet.
-	// Without TOTP it is executed after the configured cooldown, with TOTP - immediately
+	// Without TOTP it is allowed only back to the sender of the deposit and is executed
+	// after the configured cooldown. With TOTP - to any external address, immediately
 	TransferPurpose_TRANSFER_PURPOSE_REFUND TransferPurpose = 2
 )
 
@@ -726,8 +727,8 @@ type CreateRequest struct {
 	// Required for refunds: hash of the incoming deposit to the from address.
 	// Amount must not exceed the deposited amount, one active refund per deposit
 	SourceTxHash *string `protobuf:"bytes,13,opt,name=source_tx_hash,json=sourceTxHash,proto3,oneof" json:"source_tx_hash,omitempty"`
-	// Owner's TOTP code. Required for withdrawals to external addresses,
-	// optional for refunds (skips the cooldown)
+	// Owner's TOTP code. Required for withdrawals to external addresses and refunds
+	// to addresses other than the deposit sender. For refunds to the sender it skips the cooldown
 	Totp          *string `protobuf:"bytes,14,opt,name=totp,proto3,oneof" json:"totp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1105,6 +1106,164 @@ func (x *ExecuteNowResponse) GetItem() *Transfer {
 	return nil
 }
 
+type CheckRefundRequest struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	OwnerId    string                 `protobuf:"bytes,1,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	Blockchain v1.Blockchain          `protobuf:"varint,2,opt,name=blockchain,proto3,enum=processing.common.v1.Blockchain" json:"blockchain,omitempty"`
+	// Hot wallet address which received the deposit
+	FromAddress     string `protobuf:"bytes,3,opt,name=from_address,json=fromAddress,proto3" json:"from_address,omitempty"`
+	ToAddress       string `protobuf:"bytes,4,opt,name=to_address,json=toAddress,proto3" json:"to_address,omitempty"`
+	AssetIdentifier string `protobuf:"bytes,5,opt,name=asset_identifier,json=assetIdentifier,proto3" json:"asset_identifier,omitempty"`
+	Amount          string `protobuf:"bytes,6,opt,name=amount,proto3" json:"amount,omitempty"`
+	// Hash of the refunded deposit
+	SourceTxHash  string `protobuf:"bytes,7,opt,name=source_tx_hash,json=sourceTxHash,proto3" json:"source_tx_hash,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckRefundRequest) Reset() {
+	*x = CheckRefundRequest{}
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckRefundRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckRefundRequest) ProtoMessage() {}
+
+func (x *CheckRefundRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckRefundRequest.ProtoReflect.Descriptor instead.
+func (*CheckRefundRequest) Descriptor() ([]byte, []int) {
+	return file_processing_transfer_v1_transfer_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CheckRefundRequest) GetOwnerId() string {
+	if x != nil {
+		return x.OwnerId
+	}
+	return ""
+}
+
+func (x *CheckRefundRequest) GetBlockchain() v1.Blockchain {
+	if x != nil {
+		return x.Blockchain
+	}
+	return v1.Blockchain(0)
+}
+
+func (x *CheckRefundRequest) GetFromAddress() string {
+	if x != nil {
+		return x.FromAddress
+	}
+	return ""
+}
+
+func (x *CheckRefundRequest) GetToAddress() string {
+	if x != nil {
+		return x.ToAddress
+	}
+	return ""
+}
+
+func (x *CheckRefundRequest) GetAssetIdentifier() string {
+	if x != nil {
+		return x.AssetIdentifier
+	}
+	return ""
+}
+
+func (x *CheckRefundRequest) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *CheckRefundRequest) GetSourceTxHash() string {
+	if x != nil {
+		return x.SourceTxHash
+	}
+	return ""
+}
+
+type CheckRefundResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Estimated network fee paid by the hot wallet in the native coin.
+	// Empty if it is calculated only on sending (btc like blockchains)
+	EstimatedFee *string `protobuf:"bytes,1,opt,name=estimated_fee,json=estimatedFee,proto3,oneof" json:"estimated_fee,omitempty"`
+	// The fee is subtracted from the refund amount (refunds of the native coin)
+	FeeFromAmount bool `protobuf:"varint,2,opt,name=fee_from_amount,json=feeFromAmount,proto3" json:"fee_from_amount,omitempty"`
+	// The destination is the sender of the deposit: the refund does not require TOTP
+	ToSender      bool `protobuf:"varint,3,opt,name=to_sender,json=toSender,proto3" json:"to_sender,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckRefundResponse) Reset() {
+	*x = CheckRefundResponse{}
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckRefundResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckRefundResponse) ProtoMessage() {}
+
+func (x *CheckRefundResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckRefundResponse.ProtoReflect.Descriptor instead.
+func (*CheckRefundResponse) Descriptor() ([]byte, []int) {
+	return file_processing_transfer_v1_transfer_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CheckRefundResponse) GetEstimatedFee() string {
+	if x != nil && x.EstimatedFee != nil {
+		return *x.EstimatedFee
+	}
+	return ""
+}
+
+func (x *CheckRefundResponse) GetFeeFromAmount() bool {
+	if x != nil {
+		return x.FeeFromAmount
+	}
+	return false
+}
+
+func (x *CheckRefundResponse) GetToSender() bool {
+	if x != nil {
+		return x.ToSender
+	}
+	return false
+}
+
 type GetByRequestIDRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
@@ -1114,7 +1273,7 @@ type GetByRequestIDRequest struct {
 
 func (x *GetByRequestIDRequest) Reset() {
 	*x = GetByRequestIDRequest{}
-	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[8]
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1126,7 +1285,7 @@ func (x *GetByRequestIDRequest) String() string {
 func (*GetByRequestIDRequest) ProtoMessage() {}
 
 func (x *GetByRequestIDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[8]
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1139,7 +1298,7 @@ func (x *GetByRequestIDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetByRequestIDRequest.ProtoReflect.Descriptor instead.
 func (*GetByRequestIDRequest) Descriptor() ([]byte, []int) {
-	return file_processing_transfer_v1_transfer_proto_rawDescGZIP(), []int{8}
+	return file_processing_transfer_v1_transfer_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetByRequestIDRequest) GetRequestId() string {
@@ -1158,7 +1317,7 @@ type GetByRequestIDResponse struct {
 
 func (x *GetByRequestIDResponse) Reset() {
 	*x = GetByRequestIDResponse{}
-	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[9]
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1170,7 +1329,7 @@ func (x *GetByRequestIDResponse) String() string {
 func (*GetByRequestIDResponse) ProtoMessage() {}
 
 func (x *GetByRequestIDResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[9]
+	mi := &file_processing_transfer_v1_transfer_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1183,7 +1342,7 @@ func (x *GetByRequestIDResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetByRequestIDResponse.ProtoReflect.Descriptor instead.
 func (*GetByRequestIDResponse) Descriptor() ([]byte, []int) {
-	return file_processing_transfer_v1_transfer_proto_rawDescGZIP(), []int{9}
+	return file_processing_transfer_v1_transfer_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetByRequestIDResponse) GetItem() *Transfer {
@@ -1301,7 +1460,23 @@ const file_processing_transfer_v1_transfer_proto_rawDesc = "" +
 	"request_id\x18\x02 \x01(\tR\trequestId\x12\x12\n" +
 	"\x04totp\x18\x03 \x01(\tR\x04totp\"J\n" +
 	"\x12ExecuteNowResponse\x124\n" +
-	"\x04item\x18\x01 \x01(\v2 .processing.transfer.v1.TransferR\x04item\"6\n" +
+	"\x04item\x18\x01 \x01(\v2 .processing.transfer.v1.TransferR\x04item\"\x9c\x02\n" +
+	"\x12CheckRefundRequest\x12\x19\n" +
+	"\bowner_id\x18\x01 \x01(\tR\aownerId\x12@\n" +
+	"\n" +
+	"blockchain\x18\x02 \x01(\x0e2 .processing.common.v1.BlockchainR\n" +
+	"blockchain\x12!\n" +
+	"\ffrom_address\x18\x03 \x01(\tR\vfromAddress\x12\x1d\n" +
+	"\n" +
+	"to_address\x18\x04 \x01(\tR\ttoAddress\x12)\n" +
+	"\x10asset_identifier\x18\x05 \x01(\tR\x0fassetIdentifier\x12\x16\n" +
+	"\x06amount\x18\x06 \x01(\tR\x06amount\x12$\n" +
+	"\x0esource_tx_hash\x18\a \x01(\tR\fsourceTxHash\"\x96\x01\n" +
+	"\x13CheckRefundResponse\x12(\n" +
+	"\restimated_fee\x18\x01 \x01(\tH\x00R\festimatedFee\x88\x01\x01\x12&\n" +
+	"\x0ffee_from_amount\x18\x02 \x01(\bR\rfeeFromAmount\x12\x1b\n" +
+	"\tto_sender\x18\x03 \x01(\bR\btoSenderB\x10\n" +
+	"\x0e_estimated_fee\"6\n" +
 	"\x15GetByRequestIDRequest\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\"N\n" +
@@ -1342,13 +1517,14 @@ const file_processing_transfer_v1_transfer_proto_rawDesc = "" +
 	"\x0fWALLET_TYPE_HOT\x10\x01\x12\x14\n" +
 	"\x10WALLET_TYPE_COLD\x10\x02\x12\x1a\n" +
 	"\x16WALLET_TYPE_PROCESSING\x10\x03\x12\x18\n" +
-	"\x14WALLET_TYPE_EXTERNAL\x10\x042\x99\x03\n" +
+	"\x14WALLET_TYPE_EXTERNAL\x10\x042\x81\x04\n" +
 	"\x0fTransferService\x12W\n" +
 	"\x06Create\x12%.processing.transfer.v1.CreateRequest\x1a&.processing.transfer.v1.CreateResponse\x12o\n" +
 	"\x0eGetByRequestID\x12-.processing.transfer.v1.GetByRequestIDRequest\x1a..processing.transfer.v1.GetByRequestIDResponse\x12W\n" +
 	"\x06Cancel\x12%.processing.transfer.v1.CancelRequest\x1a&.processing.transfer.v1.CancelResponse\x12c\n" +
 	"\n" +
-	"ExecuteNow\x12).processing.transfer.v1.ExecuteNowRequest\x1a*.processing.transfer.v1.ExecuteNowResponseB\xec\x01\n" +
+	"ExecuteNow\x12).processing.transfer.v1.ExecuteNowRequest\x1a*.processing.transfer.v1.ExecuteNowResponse\x12f\n" +
+	"\vCheckRefund\x12*.processing.transfer.v1.CheckRefundRequest\x1a+.processing.transfer.v1.CheckRefundResponseB\xec\x01\n" +
 	"\x1acom.processing.transfer.v1B\rTransferProtoP\x01ZEgithub.com/dv-net/dv-processing/api/processing/transfer/v1;transferv1\xa2\x02\x03PTX\xaa\x02\x16Processing.Transfer.V1\xca\x02\x16Processing\\Transfer\\V1\xe2\x02\"Processing\\Transfer\\V1\\GPBMetadata\xea\x02\x18Processing::Transfer::V1b\x06proto3"
 
 var (
@@ -1364,7 +1540,7 @@ func file_processing_transfer_v1_transfer_proto_rawDescGZIP() []byte {
 }
 
 var file_processing_transfer_v1_transfer_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_processing_transfer_v1_transfer_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_processing_transfer_v1_transfer_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_processing_transfer_v1_transfer_proto_goTypes = []any{
 	(Status)(0),                    // 0: processing.transfer.v1.Status
 	(TransferTransactionType)(0),   // 1: processing.transfer.v1.TransferTransactionType
@@ -1379,48 +1555,53 @@ var file_processing_transfer_v1_transfer_proto_goTypes = []any{
 	(*CancelResponse)(nil),         // 10: processing.transfer.v1.CancelResponse
 	(*ExecuteNowRequest)(nil),      // 11: processing.transfer.v1.ExecuteNowRequest
 	(*ExecuteNowResponse)(nil),     // 12: processing.transfer.v1.ExecuteNowResponse
-	(*GetByRequestIDRequest)(nil),  // 13: processing.transfer.v1.GetByRequestIDRequest
-	(*GetByRequestIDResponse)(nil), // 14: processing.transfer.v1.GetByRequestIDResponse
-	(*timestamppb.Timestamp)(nil),  // 15: google.protobuf.Timestamp
-	(v1.Blockchain)(0),             // 16: processing.common.v1.Blockchain
-	(*structpb.Struct)(nil),        // 17: google.protobuf.Struct
+	(*CheckRefundRequest)(nil),     // 13: processing.transfer.v1.CheckRefundRequest
+	(*CheckRefundResponse)(nil),    // 14: processing.transfer.v1.CheckRefundResponse
+	(*GetByRequestIDRequest)(nil),  // 15: processing.transfer.v1.GetByRequestIDRequest
+	(*GetByRequestIDResponse)(nil), // 16: processing.transfer.v1.GetByRequestIDResponse
+	(*timestamppb.Timestamp)(nil),  // 17: google.protobuf.Timestamp
+	(v1.Blockchain)(0),             // 18: processing.common.v1.Blockchain
+	(*structpb.Struct)(nil),        // 19: google.protobuf.Struct
 }
 var file_processing_transfer_v1_transfer_proto_depIdxs = []int32{
 	1,  // 0: processing.transfer.v1.TransferTransaction.tx_type:type_name -> processing.transfer.v1.TransferTransactionType
 	2,  // 1: processing.transfer.v1.TransferTransaction.status:type_name -> processing.transfer.v1.TransferTransactionStatus
-	15, // 2: processing.transfer.v1.TransferTransaction.created_at:type_name -> google.protobuf.Timestamp
-	15, // 3: processing.transfer.v1.TransferTransaction.updated_at:type_name -> google.protobuf.Timestamp
+	17, // 2: processing.transfer.v1.TransferTransaction.created_at:type_name -> google.protobuf.Timestamp
+	17, // 3: processing.transfer.v1.TransferTransaction.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: processing.transfer.v1.Transfer.status:type_name -> processing.transfer.v1.Status
-	16, // 5: processing.transfer.v1.Transfer.blockchain:type_name -> processing.common.v1.Blockchain
-	15, // 6: processing.transfer.v1.Transfer.created_at:type_name -> google.protobuf.Timestamp
-	15, // 7: processing.transfer.v1.Transfer.updated_at:type_name -> google.protobuf.Timestamp
-	17, // 8: processing.transfer.v1.Transfer.state_data:type_name -> google.protobuf.Struct
-	17, // 9: processing.transfer.v1.Transfer.workflow_snapshot:type_name -> google.protobuf.Struct
+	18, // 5: processing.transfer.v1.Transfer.blockchain:type_name -> processing.common.v1.Blockchain
+	17, // 6: processing.transfer.v1.Transfer.created_at:type_name -> google.protobuf.Timestamp
+	17, // 7: processing.transfer.v1.Transfer.updated_at:type_name -> google.protobuf.Timestamp
+	19, // 8: processing.transfer.v1.Transfer.state_data:type_name -> google.protobuf.Struct
+	19, // 9: processing.transfer.v1.Transfer.workflow_snapshot:type_name -> google.protobuf.Struct
 	5,  // 10: processing.transfer.v1.Transfer.transactions:type_name -> processing.transfer.v1.TransferTransaction
 	3,  // 11: processing.transfer.v1.Transfer.purpose:type_name -> processing.transfer.v1.TransferPurpose
 	4,  // 12: processing.transfer.v1.Transfer.wallet_from_type:type_name -> processing.transfer.v1.WalletType
 	4,  // 13: processing.transfer.v1.Transfer.wallet_to_type:type_name -> processing.transfer.v1.WalletType
-	15, // 14: processing.transfer.v1.Transfer.execute_after:type_name -> google.protobuf.Timestamp
-	15, // 15: processing.transfer.v1.Transfer.two_factor_confirmed_at:type_name -> google.protobuf.Timestamp
-	16, // 16: processing.transfer.v1.CreateRequest.blockchain:type_name -> processing.common.v1.Blockchain
+	17, // 14: processing.transfer.v1.Transfer.execute_after:type_name -> google.protobuf.Timestamp
+	17, // 15: processing.transfer.v1.Transfer.two_factor_confirmed_at:type_name -> google.protobuf.Timestamp
+	18, // 16: processing.transfer.v1.CreateRequest.blockchain:type_name -> processing.common.v1.Blockchain
 	3,  // 17: processing.transfer.v1.CreateRequest.purpose:type_name -> processing.transfer.v1.TransferPurpose
 	6,  // 18: processing.transfer.v1.CreateResponse.item:type_name -> processing.transfer.v1.Transfer
 	6,  // 19: processing.transfer.v1.CancelResponse.item:type_name -> processing.transfer.v1.Transfer
 	6,  // 20: processing.transfer.v1.ExecuteNowResponse.item:type_name -> processing.transfer.v1.Transfer
-	6,  // 21: processing.transfer.v1.GetByRequestIDResponse.item:type_name -> processing.transfer.v1.Transfer
-	7,  // 22: processing.transfer.v1.TransferService.Create:input_type -> processing.transfer.v1.CreateRequest
-	13, // 23: processing.transfer.v1.TransferService.GetByRequestID:input_type -> processing.transfer.v1.GetByRequestIDRequest
-	9,  // 24: processing.transfer.v1.TransferService.Cancel:input_type -> processing.transfer.v1.CancelRequest
-	11, // 25: processing.transfer.v1.TransferService.ExecuteNow:input_type -> processing.transfer.v1.ExecuteNowRequest
-	8,  // 26: processing.transfer.v1.TransferService.Create:output_type -> processing.transfer.v1.CreateResponse
-	14, // 27: processing.transfer.v1.TransferService.GetByRequestID:output_type -> processing.transfer.v1.GetByRequestIDResponse
-	10, // 28: processing.transfer.v1.TransferService.Cancel:output_type -> processing.transfer.v1.CancelResponse
-	12, // 29: processing.transfer.v1.TransferService.ExecuteNow:output_type -> processing.transfer.v1.ExecuteNowResponse
-	26, // [26:30] is the sub-list for method output_type
-	22, // [22:26] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	18, // 21: processing.transfer.v1.CheckRefundRequest.blockchain:type_name -> processing.common.v1.Blockchain
+	6,  // 22: processing.transfer.v1.GetByRequestIDResponse.item:type_name -> processing.transfer.v1.Transfer
+	7,  // 23: processing.transfer.v1.TransferService.Create:input_type -> processing.transfer.v1.CreateRequest
+	15, // 24: processing.transfer.v1.TransferService.GetByRequestID:input_type -> processing.transfer.v1.GetByRequestIDRequest
+	9,  // 25: processing.transfer.v1.TransferService.Cancel:input_type -> processing.transfer.v1.CancelRequest
+	11, // 26: processing.transfer.v1.TransferService.ExecuteNow:input_type -> processing.transfer.v1.ExecuteNowRequest
+	13, // 27: processing.transfer.v1.TransferService.CheckRefund:input_type -> processing.transfer.v1.CheckRefundRequest
+	8,  // 28: processing.transfer.v1.TransferService.Create:output_type -> processing.transfer.v1.CreateResponse
+	16, // 29: processing.transfer.v1.TransferService.GetByRequestID:output_type -> processing.transfer.v1.GetByRequestIDResponse
+	10, // 30: processing.transfer.v1.TransferService.Cancel:output_type -> processing.transfer.v1.CancelResponse
+	12, // 31: processing.transfer.v1.TransferService.ExecuteNow:output_type -> processing.transfer.v1.ExecuteNowResponse
+	14, // 32: processing.transfer.v1.TransferService.CheckRefund:output_type -> processing.transfer.v1.CheckRefundResponse
+	28, // [28:33] is the sub-list for method output_type
+	23, // [23:28] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_processing_transfer_v1_transfer_proto_init() }
@@ -1430,13 +1611,14 @@ func file_processing_transfer_v1_transfer_proto_init() {
 	}
 	file_processing_transfer_v1_transfer_proto_msgTypes[1].OneofWrappers = []any{}
 	file_processing_transfer_v1_transfer_proto_msgTypes[2].OneofWrappers = []any{}
+	file_processing_transfer_v1_transfer_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_processing_transfer_v1_transfer_proto_rawDesc), len(file_processing_transfer_v1_transfer_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

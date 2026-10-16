@@ -38,3 +38,8 @@ WHERE tt.tx_hash = sqlc.arg(tx_hash)
 SELECT *
 FROM transfer_transactions tt
 WHERE transfer_id = $1;
+-- name: Delete :exec
+-- removes a system transaction which was rejected by the node on broadcast
+DELETE
+FROM transfer_transactions
+WHERE id = $1;

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/shopspring/decimal"
+	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/dv-net/dv-proto/gen/go/manager/common/v1"
 	orderv1 "github.com/dv-net/dv-proto/gen/go/manager/order/v1"
@@ -282,24 +283,14 @@ func (s *FSM) sendTRX(ctx context.Context, wCreds *walletCreds, toAddress string
 	}
 
 	stateData := map[string]any{
-		"amount": amount,
+		stateKeyAmount: amount,
 	}
 
 	if err := s.bs.Transfers().SetStateData(ctx, s.transfer.ID, stateData); err != nil {
 		return nil, fmt.Errorf("set state data: %w", err)
 	}
 
-	if err = pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
-		if err = s.initPendingSystemTransaction(ctx, tx, dbTx); err != nil {
-			return fmt.Errorf("store transaction info: %w", err)
-		}
-
-		if _, err = s.tron.Node().Broadcast(tx.GetTransaction()); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
+	if err = s.broadcast(ctx, tx); err != nil {
 		return nil, fmt.Errorf("broadcast transaction: %w", err)
 	}
 
@@ -350,7 +341,7 @@ func (s *FSM) sendTrc20(ctx context.Context, wCreds *walletCreds, contractAddres
 
 	stateData := map[string]any{
 		"contract_address": contractAddress,
-		"amount":           amount,
+		stateKeyAmount:     amount,
 		"fee_limit":        feeLimit,
 		"decimals":         decimals,
 	}
@@ -359,17 +350,7 @@ func (s *FSM) sendTrc20(ctx context.Context, wCreds *walletCreds, contractAddres
 		return nil, fmt.Errorf("set state data: %w", err)
 	}
 
-	if err = pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
-		if err = s.initPendingSystemTransaction(ctx, tx, dbTx); err != nil {
-			return fmt.Errorf("store system transaction info: %w", err)
-		}
-
-		if _, err = s.tron.Node().Broadcast(tx.GetTransaction()); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
+	if err = s.broadcast(ctx, tx); err != nil {
 		return nil, fmt.Errorf("broadcast transaction: %w", err)
 	}
 
@@ -565,25 +546,97 @@ func (s *FSM) checkExternalOrderStatus(ctx context.Context, orderID string) erro
 	}
 }
 
+// broadcast saves the pending system transaction and only then broadcasts the signed transaction.
+//
+// The system transaction is committed before the broadcast: if the process fails after the broadcast,
+// the record exists, the sending step is retried instead of being compensated (see the failure handler
+// of the workflow) and the transaction is never sent twice (see sending).
+//
+// For the transfer transaction itself broadcast_at is set as well: a failed refund which may be
+// in the network keeps the refunded deposit locked.
+func (s *FSM) broadcast(ctx context.Context, tx *api.TransactionExtention) error {
+	isTransferTx := s.wf.CurrentStep() != nil && s.wf.CurrentStep().Name == stepSending
+
+	var systemTx *models.TransferTransaction
+	if err := pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
+		var err error
+		systemTx, err = s.createPendingSystemTransaction(ctx, tx, dbTx)
+		if err != nil {
+			return fmt.Errorf("store system transaction info: %w", err)
+		}
+
+		if isTransferTx {
+			if err := s.bs.Transfers().SetBroadcastAt(ctx, s.transfer.ID, repos.WithTx(dbTx)); err != nil {
+				return fmt.Errorf("set broadcast at: %w", err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	_, sendErr := s.tron.Node().Broadcast(tx.GetTransaction())
+	if sendErr == nil {
+		return nil
+	}
+
+	// A grpc error (unavailable, deadline exceeded, ...) is ambiguous: the node may have accepted
+	// the transaction. The records are kept, the step is retried and the transaction is tracked by its hash.
+	// Any other error is the result of the node: the transaction is rejected and not in the network.
+	if _, isGRPC := status.FromError(sendErr); isGRPC {
+		return sendErr
+	}
+
+	// the node already has the transaction
+	if strings.Contains(sendErr.Error(), api.Return_DUP_TRANSACTION_ERROR.String()) {
+		return nil
+	}
+
+	if err := pgx.BeginTxFunc(ctx, s.st.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
+		if err := s.st.TransferTransactions(repos.WithTx(dbTx)).Delete(ctx, systemTx.ID); err != nil {
+			return fmt.Errorf("delete rejected system transaction: %w", err)
+		}
+
+		if isTransferTx {
+			if err := s.bs.Transfers().ClearBroadcastAt(ctx, s.transfer.ID, repos.WithTx(dbTx)); err != nil {
+				return fmt.Errorf("clear broadcast at: %w", err)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("%w, rollback system transaction: %w", sendErr, err)
+	}
+
+	return fmt.Errorf("rejected by node: %w", sendErr)
+}
+
 // initPendingSystemTransaction extracts and combines transaction expenses for a TRON transaction.
 // It creates new expenses (energy, bandwidth, and burnt native token) to the transfer_transactions table.
 func (s *FSM) initPendingSystemTransaction(ctx context.Context, txInfo *api.TransactionExtention, dbTx pgx.Tx) error {
+	_, err := s.createPendingSystemTransaction(ctx, txInfo, dbTx)
+	return err
+}
+
+func (s *FSM) createPendingSystemTransaction(ctx context.Context, txInfo *api.TransactionExtention, dbTx pgx.Tx) (*models.TransferTransaction, error) {
 	txType, err := s.prepareTransferTransactionTypeByStep()
 	if err != nil {
-		return fmt.Errorf("prepare transfer transaction type: %w", err)
+		return nil, fmt.Errorf("prepare transfer transaction type: %w", err)
 	}
 
-	if _, err = s.st.TransferTransactions(repos.WithTx(dbTx)).Create(ctx, repo_transfer_transactions.CreateParams{
+	systemTx, err := s.st.TransferTransactions(repos.WithTx(dbTx)).Create(ctx, repo_transfer_transactions.CreateParams{
 		TransferID: s.transfer.ID,
 		TxHash:     common.Bytes2Hex(txInfo.Txid),
 		TxType:     *txType,
 		Status:     models.TransferTransactionsStatusPending,
 		Step:       s.wf.CurrentStep().Name,
-	}); err != nil {
-		return fmt.Errorf("create transfer transaction: %w", err)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create transfer transaction: %w", err)
 	}
 
-	return nil
+	return systemTx, nil
 }
 
 // updateSystemTransactionStatus extracts and combines transaction expenses for a TRON transaction.

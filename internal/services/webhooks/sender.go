@@ -156,7 +156,7 @@ func (s *sender) handleChunk(ctx context.Context, sentWebhooks *atomic.Int32, ch
 			defer wg.Done()
 
 			// send webhook
-			resp, err := s.doRequest(ctx, item.Payload, item.CallbackUrl.String, item.SecretKey.String)
+			resp, err := s.doRequest(ctx, item.Payload, item.CallbackUrl, item.SecretKey)
 			if err != nil {
 				whResponseData := resp
 				if whResponseData == nil || *whResponseData == "" {

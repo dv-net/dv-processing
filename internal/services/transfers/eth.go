@@ -48,7 +48,13 @@ func (s *Service) processEVM(ctx context.Context, req *CreateTransferRequest) er
 		return fmt.Errorf("get wallet [%s] balance: %w", req.FromAddresses[0], err)
 	}
 
-	if !req.WholeAmount && balance.LessThanOrEqual(req.Amount.Decimal) {
+	// for refunds of the native coin the fee is subtracted from the amount
+	insufficient := balance.LessThanOrEqual(req.Amount.Decimal)
+	if req.feeFromAmount() {
+		insufficient = balance.LessThan(req.Amount.Decimal)
+	}
+
+	if !req.WholeAmount && insufficient {
 		return fmt.Errorf("%w for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeAddressEmptyBalance), req.Amount.Decimal, balance)
 	}
 
@@ -61,6 +67,7 @@ func (s *Service) processEVM(ctx context.Context, req *CreateTransferRequest) er
 		StatusesNotIn: []string{
 			constants.TransferStatusCompleted.String(),
 			constants.TransferStatusFailed.String(),
+			constants.TransferStatusCanceled.String(),
 		},
 		FromAddress: &req.FromAddresses[0],
 		Blockchain:  &req.Blockchain,
@@ -117,6 +124,11 @@ func (s *Service) processEVM(ctx context.Context, req *CreateTransferRequest) er
 		}
 	}
 
+	// refunds are paid by the hot wallet itself, the processing wallet is not used
+	if req.Purpose == constants.TransferPurposeRefund {
+		return s.checkEVMRefundFee(ctx, req, evmInstance, assetDecimals)
+	}
+
 	// check balances
 	if req.walletFromType == constants.WalletTypeHot && req.AssetIdentifier != req.Blockchain.GetAssetIdentifier() { //nolint:nestif
 		// get processing wallet by owner id
@@ -150,8 +162,8 @@ func (s *Service) processEVM(ctx context.Context, req *CreateTransferRequest) er
 		// calculate total fee in base asset for transfer with coefficient
 		transferFeeBaseAssetAmount := evm.NewUnit(estimateResult.TotalFeeAmount.Mul(decimal.NewFromFloat(evm.TransferFeeCoeff)), evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal()
 		req.stateData = map[string]any{
-			"handler_estimated_resources": estimateResult,
-			"need_fee_amount":             transferFeeBaseAssetAmount,
+			stateKeyHandlerEstimatedResources: estimateResult,
+			"need_fee_amount":                 transferFeeBaseAssetAmount,
 		}
 
 		// if hot wallet balance is less than fee amount, check processing wallet
@@ -191,6 +203,45 @@ func (s *Service) processEVM(ctx context.Context, req *CreateTransferRequest) er
 				)
 			}
 		}
+	}
+
+	return nil
+}
+
+// checkEVMRefundFee checks that the hot wallet pays the refund fee by itself:
+// for the native coin the fee is subtracted from the amount, for tokens the hot wallet
+// must already hold enough native coin for gas
+func (s *Service) checkEVMRefundFee(ctx context.Context, req *CreateTransferRequest, evmInstance *evm.EVM, assetDecimals int64) error {
+	estimateResult, err := evmInstance.EstimateTransfer(ctx, req.FromAddresses[0], req.ToAddresses[0], req.AssetIdentifier, req.Amount.Decimal, assetDecimals)
+	if err != nil {
+		return fmt.Errorf("estimate transfer: %w", err)
+	}
+
+	fee := evm.NewUnit(estimateResult.TotalFeeAmount.Mul(decimal.NewFromFloat(evm.TransferFeeCoeff)), evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal()
+
+	req.stateData = map[string]any{
+		stateKeyHandlerEstimatedResources: estimateResult,
+		"refund_estimated_fee":            fee,
+	}
+	req.refundEstimatedFee = &fee
+
+	if req.feeFromAmount() {
+		if req.Amount.Decimal.LessThanOrEqual(fee) {
+			return fmt.Errorf("%w: refund amount %s does not cover fee %s", rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), req.Amount.Decimal, fee)
+		}
+		return nil
+	}
+
+	baseAssetBalance, err := s.eproxySvc.AddressBalance(ctx, req.FromAddresses[0], req.Blockchain.GetAssetIdentifier(), req.Blockchain)
+	if err != nil {
+		return fmt.Errorf("get hot wallet %s balance: %w", req.Blockchain.GetAssetIdentifier(), err)
+	}
+
+	if baseAssetBalance.LessThan(fee) {
+		return fmt.Errorf(
+			"%w: %s balance %s, fee %s",
+			rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), req.Blockchain.GetAssetIdentifier(), baseAssetBalance, fee,
+		)
 	}
 
 	return nil

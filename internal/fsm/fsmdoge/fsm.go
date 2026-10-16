@@ -2,10 +2,12 @@ package fsmdoge
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
+
+	"github.com/ltcsuite/ltcd/btcjson"
 
 	"github.com/dv-net/dv-processing/internal/config"
 	"github.com/dv-net/dv-processing/internal/constants"
@@ -171,20 +173,9 @@ func (s *FSM) validateRequest(ctx context.Context, _ *workflow.Workflow, _ *work
 		return fmt.Errorf("only one from address is supported for transfer with amount")
 	}
 
-	// check cold or processing wallet
-	if s.transfer.WalletFromType == constants.WalletTypeHot {
-		checkResult, err := s.bs.Wallets().CheckWallet(ctx, wconstants.BlockchainTypeDogecoin, s.transfer.GetToAddress())
-		if err != nil {
-			return fmt.Errorf("check wallet: %w", err)
-		}
-
-		if !slices.Contains([]constants.WalletType{constants.WalletTypeCold, constants.WalletTypeProcessing}, checkResult.WalletType) {
-			return fmt.Errorf("invalid wallet type %s", checkResult.WalletType)
-		}
-
-		if checkResult.OwnerID != s.transfer.OwnerID {
-			return fmt.Errorf("invalid wallet owner %s", checkResult.OwnerID)
-		}
+	// check destination: owner's cold / processing wallet or external address for withdrawals and refunds
+	if err := s.bs.Wallets().ValidateTransferDestination(ctx, s.transfer); err != nil {
+		return fmt.Errorf("validate transfer destination: %w", err)
 	}
 
 	return s.setTransferStatus(ctx, constants.TransferStatusProcessing)
@@ -314,9 +305,25 @@ func (s *FSM) sendTransfer(ctx context.Context, _ *workflow.Workflow, _ *workflo
 		"requested_fee_max": s.transfer.FeeMax.Decimal.String(),
 	}
 
+	// refunds of the native coin pay the fee from the amount
+	if s.transfer.FeeFromAmount() {
+		sentAmount := decimal.NewFromInt(newTx.MsgTx().TxOut[0].Value)
+		stateData["refund"] = map[string]any{
+			"amount":      s.transfer.Amount.Decimal.String(),
+			"fee":         transferAmount.Sub(sentAmount).Div(assetDecimals).String(),
+			"sent_amount": sentAmount.Div(assetDecimals).String(),
+		}
+	}
+
 	// set state data
 	if err := s.bs.Transfers().SetStateData(ctx, s.transfer.ID, stateData); err != nil {
 		return fmt.Errorf("set state data: %w", err)
+	}
+
+	// broadcast_at is set before the broadcast: a failed refund which may be in the network
+	// keeps the refunded deposit locked, so it cannot be refunded twice
+	if err := s.bs.Transfers().SetBroadcastAt(ctx, s.transfer.ID); err != nil {
+		return fmt.Errorf("set broadcast at: %w", err)
 	}
 
 	// send transaction
@@ -337,7 +344,7 @@ func (s *FSM) sendTransfer(ctx context.Context, _ *workflow.Workflow, _ *workflo
 		return fmt.Errorf("send transaction timeout: %w", ctx.Err())
 	case err := <-errCh:
 		if err != nil {
-			return err
+			return s.handleSendError(ctx, err)
 		}
 	}
 
@@ -408,4 +415,25 @@ func (s *FSM) sendSuccessEvent(ctx context.Context, _ *workflow.Workflow, _ *wor
 		return err
 	}
 	return nil
+}
+
+// handleSendError resets broadcast_at when the node explicitly rejected the transaction:
+// it is not in the network and the transfer can be failed safely. On any other error
+// (timeout, connection) the transaction may be in the network and broadcast_at is kept.
+func (s *FSM) handleSendError(ctx context.Context, sendErr error) error {
+	var rpcErr *btcjson.RPCError
+	if !errors.As(sendErr, &rpcErr) {
+		return sendErr
+	}
+
+	// the node already has the transaction
+	if rpcErr.Code == btcjson.ErrRPCTxAlreadyInChain || strings.Contains(strings.ToLower(rpcErr.Message), "already in") {
+		return nil
+	}
+
+	if err := s.bs.Transfers().ClearBroadcastAt(ctx, s.transfer.ID); err != nil {
+		return fmt.Errorf("%w, clear broadcast at: %w", sendErr, err)
+	}
+
+	return sendErr
 }

@@ -45,6 +45,11 @@ const (
 	// For example, at the time of sending, a network failure and it is not clear whether the transfer occurred or not,
 	// and the transaction requires manual intervention.
 	TransferStatusFrozen TransferStatus = "frozen"
+
+	// TransferStatusCanceled
+	//
+	// The transaction was canceled by the user or by the system.
+	TransferStatusCanceled TransferStatus = "canceled"
 )
 
 // String
@@ -60,7 +65,8 @@ func (t TransferStatus) Valid() bool {
 		TransferStatusUnconfirmed,
 		TransferStatusCompleted,
 		TransferStatusFailed,
-		TransferStatusFrozen:
+		TransferStatusFrozen,
+		TransferStatusCanceled:
 		return true
 	}
 	return false
@@ -77,5 +83,6 @@ func AllTransferStatuses() []TransferStatus {
 		TransferStatusCompleted,
 		TransferStatusFailed,
 		TransferStatusFrozen,
+		TransferStatusCanceled,
 	}
 }

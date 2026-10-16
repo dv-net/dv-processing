@@ -77,8 +77,14 @@ func (s *Service) processBTCLike(ctx context.Context, req *CreateTransferRequest
 				return fmt.Errorf("get balance: %w", err)
 			}
 
-			// TODO: edit this condition
-			if !req.WholeAmount && balance.LessThanOrEqual(req.Amount.Decimal) {
+			// the fee is paid from the change, so the balance must exceed the amount.
+			// For refunds of the native coin the fee is subtracted from the amount
+			insufficient := balance.LessThanOrEqual(req.Amount.Decimal)
+			if req.feeFromAmount() {
+				insufficient = balance.LessThan(req.Amount.Decimal)
+			}
+
+			if !req.WholeAmount && insufficient {
 				return fmt.Errorf("%w for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeAddressEmptyBalance), req.Amount.Decimal, balance)
 			}
 
@@ -88,7 +94,8 @@ func (s *Service) processBTCLike(ctx context.Context, req *CreateTransferRequest
 
 			// check active transfers with the same from address
 			transfersInProcess, err := s.store.Transfers().Find(ctx, FindParams{
-				StatusesIn:  []string{constants.TransferStatusProcessing.String()},
+				// new transfers include refunds waiting for the cooldown, their funds must not be swept
+				StatusesIn:  []string{constants.TransferStatusNew.String(), constants.TransferStatusProcessing.String()},
 				FromAddress: &fromAddress,
 				Blockchain:  &req.Blockchain,
 				Limit:       utils.Pointer(1),

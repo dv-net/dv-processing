@@ -9,7 +9,9 @@ import (
 	"github.com/dv-net/dv-processing/internal/util"
 	"github.com/dv-net/dv-processing/internal/workflow"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/evm"
+	"github.com/dv-net/dv-processing/rpccode"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/shopspring/decimal"
 )
 
 // sending
@@ -87,8 +89,17 @@ func (s *FSM) sending(ctx context.Context, _ *workflow.Workflow, _ *workflow.Sta
 		}
 	}
 
-	if s.transfer.WholeAmount && s.transfer.AssetIdentifier == s.evm.Blockchain().GetAssetIdentifier() {
-		amount = amount.Sub(evm.NewUnit(estimateResult.TotalFeeAmount, evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal())
+	// whole amount transfers and refunds of the native coin pay the fee from the amount
+	if (s.transfer.WholeAmount || s.transfer.FeeFromAmount()) && s.transfer.AssetIdentifier == s.evm.Blockchain().GetAssetIdentifier() {
+		fee := evm.NewUnit(estimateResult.TotalFeeAmount, evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal()
+		requestedAmount := amount
+		amount = amount.Sub(fee)
+
+		if s.transfer.FeeFromAmount() {
+			if err := s.saveRefundFee(ctx, requestedAmount, fee, amount); err != nil {
+				return err
+			}
+		}
 	}
 
 	if !amount.IsPositive() {
@@ -132,6 +143,25 @@ func (s *FSM) sending(ctx context.Context, _ *workflow.Workflow, _ *workflow.Sta
 	s.transfer, err = s.bs.Transfers().SetTxHash(ctx, s.transfer.ID, newTx.Hash().Hex())
 	if err != nil {
 		return fmt.Errorf("set tx hash: %w", err)
+	}
+
+	return nil
+}
+
+// saveRefundFee checks that the refund amount covers the network fee and saves the fee split to the state data
+func (s *FSM) saveRefundFee(ctx context.Context, requestedAmount, fee, sentAmount decimal.Decimal) error {
+	if !sentAmount.IsPositive() {
+		return fmt.Errorf("%w: refund amount %s does not cover fee %s", rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), requestedAmount, fee)
+	}
+
+	if err := s.bs.Transfers().SetStateData(ctx, s.transfer.ID, map[string]any{
+		"refund": map[string]any{
+			"amount":      requestedAmount.String(),
+			"fee":         fee.String(),
+			"sent_amount": sentAmount.String(),
+		},
+	}); err != nil {
+		return fmt.Errorf("set state data: %w", err)
 	}
 
 	return nil

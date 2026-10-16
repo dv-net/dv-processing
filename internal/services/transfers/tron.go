@@ -32,6 +32,7 @@ func (s *Service) processTron(ctx context.Context, req *CreateTransferRequest) e
 		StatusesNotIn: []string{
 			constants.TransferStatusCompleted.String(),
 			constants.TransferStatusFailed.String(),
+			constants.TransferStatusCanceled.String(),
 		},
 		FromAddress: &req.FromAddresses[0],
 		Blockchain:  &req.Blockchain,
@@ -51,6 +52,14 @@ func (s *Service) processTron(ctx context.Context, req *CreateTransferRequest) e
 			return fmt.Errorf("handle processing wallet: %w", err)
 		}
 	case constants.WalletTypeHot:
+		// refunds are paid by the hot wallet itself, the processing wallet is not used
+		if req.Purpose == constants.TransferPurposeRefund {
+			if err := s.processTronRefund(ctx, req); err != nil {
+				return fmt.Errorf("handle refund: %w", err)
+			}
+			return nil
+		}
+
 		if err := s.processTronHotWallets(ctx, req); err != nil {
 			return fmt.Errorf("handle hot wallet: %w", err)
 		}
@@ -93,9 +102,9 @@ func (s *Service) processTronProcessingWallets(ctx context.Context, req *CreateT
 	}
 
 	req.stateData = map[string]any{
-		"handler_current_balance":     balanceAsset,
-		"handler_estimated_resources": estimate,
-		"handler_transfer_amount":     amount,
+		"handler_current_balance":         balanceAsset,
+		stateKeyHandlerEstimatedResources: estimate,
+		"handler_transfer_amount":         amount,
 	}
 
 	switch constants.TronTransferKind(*req.Kind) {
@@ -198,7 +207,7 @@ func (s *Service) processTronHotWallets(ctx context.Context, req *CreateTransfer
 	}
 
 	req.stateData = map[string]any{
-		"estimated_resources": estimate,
+		stateKeyEstimatedResources: estimate,
 	}
 
 	switch constants.TronTransferKind(*req.Kind) {
@@ -310,8 +319,8 @@ func (s *Service) processBurnTRX(ctx context.Context, req *CreateTransferRequest
 		}
 
 		req.stateData = map[string]any{
-			"estimated_resources":  estimate,
-			"estimated_activation": activation,
+			stateKeyEstimatedResources: estimate,
+			"estimated_activation":     activation,
 		}
 	}
 
@@ -423,9 +432,9 @@ func (s *Service) processResources(ctx context.Context, req *CreateTransferReque
 	}
 
 	req.stateData = map[string]any{
-		"estimated_resources":   res,
-		"estimated_activation":  activation,
-		"active_tron_transfers": activeTronTransfers,
+		stateKeyEstimatedResources: res,
+		"estimated_activation":     activation,
+		"active_tron_transfers":    activeTronTransfers,
 	}
 
 	s.logger.Infow("transfer resources pre-calculation",
@@ -522,7 +531,7 @@ func (s *Service) processCloudDelegate(ctx context.Context, req *CreateTransferR
 	}
 
 	req.stateData = map[string]any{
-		"estimated_resources": res,
+		stateKeyEstimatedResources: res,
 	}
 
 	orders := utils.NewSlice[*orderv1.CreateOrderRequest]()

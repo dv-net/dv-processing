@@ -98,6 +98,22 @@ func NewFSM( //nolint:funlen
 			w.CurrentStep() != nil && w.CurrentStep().Name != "" {
 			currentStage, currentStep := w.CurrentStage().Name, w.CurrentStep().Name
 
+			// The transfer transaction may already be in the network: the error happened after
+			// the broadcast or the broadcast result is unknown. Compensation would fail the transfer
+			// and allow to send it again (e.g. a second refund of the same deposit), so the step is
+			// retried, it skips the sending and tracks the saved transaction
+			if currentStep == stepSending {
+				txs, findErr := fsm.st.TransferTransactions().FindTransactionByType(ctx, fsm.transfer.ID, models.TransferTransactionTypeTransfer)
+				if findErr != nil || len(txs) > 0 {
+					l.Warnw("sending failed after its transaction was saved, retrying",
+						"transfer_id", fsm.transfer.ID,
+						"error", err,
+						"check_error", findErr,
+					)
+					return err
+				}
+			}
+
 			// Run compensation stage by non-repeatable failed steps
 			if steps, ok := exitOnFailedSteps[currentStage]; ok {
 				for _, step := range steps {

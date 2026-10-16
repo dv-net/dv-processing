@@ -257,9 +257,9 @@ func (s *FSM) reclaimResources(ctx context.Context, wf *workflow.Workflow, _ *wo
 
 // waitingReclaimResourcesConfirmations
 func (s *FSM) waitingReclaimResourcesConfirmations(ctx context.Context, _ *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
-	reclaimTxs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, models.TransferTransactionTypeReclaimResources)
+	reclaimTxs, err := s.findPendingReclaimTxs(ctx)
 	if err != nil {
-		return fmt.Errorf("find reclaim txs: %w", err)
+		return err
 	}
 
 	eg, egCtx := errgroup.WithContext(ctx)

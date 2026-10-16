@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dv-net/dv-processing/internal/constants"
-	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/internal/services/webhooks"
 	"github.com/dv-net/dv-processing/internal/workflow"
 	"github.com/dv-net/dv-processing/pkg/retry"
@@ -178,9 +177,9 @@ func (s *FSM) reclaimOnError(ctx context.Context, _ *workflow.Workflow, _ *workf
 }
 
 func (s *FSM) waitingReclaimOnErrorConfirmations(ctx context.Context, _ *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
-	reclaimTxs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, models.TransferTransactionTypeReclaimResources)
+	reclaimTxs, err := s.findPendingReclaimTxs(ctx)
 	if err != nil {
-		return fmt.Errorf("find reclaim txs: %w", err)
+		return err
 	}
 
 	eg, egCtx := errgroup.WithContext(ctx)

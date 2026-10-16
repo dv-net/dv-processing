@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -138,6 +139,19 @@ func (s *FSM) checkTransactionConfirmations(ctx context.Context, transferTx *mod
 	}
 
 	return nil
+}
+
+// findPendingReclaimTxs returns reclaim transactions of the transfer, skipping ones already marked as failed
+// (e.g. lost after broadcast), so that a retried reclaim does not wait for them forever.
+func (s *FSM) findPendingReclaimTxs(ctx context.Context) ([]*models.TransferTransaction, error) {
+	reclaimTxs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, models.TransferTransactionTypeReclaimResources)
+	if err != nil {
+		return nil, fmt.Errorf("find reclaim txs: %w", err)
+	}
+
+	return slices.DeleteFunc(reclaimTxs, func(tx *models.TransferTransaction) bool {
+		return tx.Status == models.TransferTransactionsStatusFailed
+	}), nil
 }
 
 func (s *FSM) handleTxNotFound(ctx context.Context, transferTx *models.TransferTransaction) error {

@@ -63,6 +63,9 @@ const (
 	ReclaimFromAddress    = "reclaim_from"
 )
 
+// state data keys
+const stateKeyAmount = "amount"
+
 const (
 	DurationTimeResourceDelegation = 120 * time.Second
 )

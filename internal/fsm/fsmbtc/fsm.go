@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/btcsuite/btcd/btcjson"
 	"strings"
 	"time"
+
+	"github.com/btcsuite/btcd/btcjson"
 
 	"github.com/dv-net/dv-processing/internal/config"
 	"github.com/dv-net/dv-processing/internal/constants"

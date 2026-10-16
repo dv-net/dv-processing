@@ -162,8 +162,8 @@ func (s *Service) processEVM(ctx context.Context, req *CreateTransferRequest) er
 		// calculate total fee in base asset for transfer with coefficient
 		transferFeeBaseAssetAmount := evm.NewUnit(estimateResult.TotalFeeAmount.Mul(decimal.NewFromFloat(evm.TransferFeeCoeff)), evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal()
 		req.stateData = map[string]any{
-			"handler_estimated_resources": estimateResult,
-			"need_fee_amount":             transferFeeBaseAssetAmount,
+			stateKeyHandlerEstimatedResources: estimateResult,
+			"need_fee_amount":                 transferFeeBaseAssetAmount,
 		}
 
 		// if hot wallet balance is less than fee amount, check processing wallet
@@ -220,8 +220,8 @@ func (s *Service) checkEVMRefundFee(ctx context.Context, req *CreateTransferRequ
 	fee := evm.NewUnit(estimateResult.TotalFeeAmount.Mul(decimal.NewFromFloat(evm.TransferFeeCoeff)), evm.EtherUnitWei).Value(evm.EtherUnitEther).Decimal()
 
 	req.stateData = map[string]any{
-		"handler_estimated_resources": estimateResult,
-		"refund_estimated_fee":        fee,
+		stateKeyHandlerEstimatedResources: estimateResult,
+		"refund_estimated_fee":            fee,
 	}
 	req.refundEstimatedFee = &fee
 

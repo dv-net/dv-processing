@@ -17,6 +17,12 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// state data keys
+const (
+	stateKeyEstimatedResources        = "estimated_resources"
+	stateKeyHandlerEstimatedResources = "handler_estimated_resources"
+)
+
 type Service struct {
 	logger logger.Logger
 	config *config.Config

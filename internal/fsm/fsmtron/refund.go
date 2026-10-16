@@ -52,9 +52,9 @@ func (s *FSM) refundAmount(ctx context.Context, fromAddress, toAddress string, a
 
 	if err := s.bs.Transfers().SetStateData(ctx, s.transfer.ID, map[string]any{
 		"refund": map[string]any{
-			"amount":      amount.String(),
-			"fee":         fee.String(),
-			"sent_amount": sentAmount.String(),
+			stateKeyAmount: amount.String(),
+			"fee":          fee.String(),
+			"sent_amount":  sentAmount.String(),
 		},
 	}); err != nil {
 		return decimal.Zero, fmt.Errorf("set state data: %w", err)

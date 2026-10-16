@@ -283,7 +283,7 @@ func (s *FSM) sendTRX(ctx context.Context, wCreds *walletCreds, toAddress string
 	}
 
 	stateData := map[string]any{
-		"amount": amount,
+		stateKeyAmount: amount,
 	}
 
 	if err := s.bs.Transfers().SetStateData(ctx, s.transfer.ID, stateData); err != nil {
@@ -341,7 +341,7 @@ func (s *FSM) sendTrc20(ctx context.Context, wCreds *walletCreds, contractAddres
 
 	stateData := map[string]any{
 		"contract_address": contractAddress,
-		"amount":           amount,
+		stateKeyAmount:     amount,
 		"fee_limit":        feeLimit,
 		"decimals":         decimals,
 	}

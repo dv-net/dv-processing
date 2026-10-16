@@ -48,9 +48,10 @@ func (s *Service) processEVM(ctx context.Context, req *CreateTransferRequest) er
 		return fmt.Errorf("get wallet [%s] balance: %w", req.FromAddresses[0], err)
 	}
 
-	// for refunds of the native coin the fee is subtracted from the amount
+	// a refund sends the whole deposit, so the balance may equal the amount: the native coin fee
+	// is subtracted from the amount, the token fee is checked separately (checkEVMRefundFee)
 	insufficient := balance.LessThanOrEqual(req.Amount.Decimal)
-	if req.feeFromAmount() {
+	if req.Purpose == constants.TransferPurposeRefund {
 		insufficient = balance.LessThan(req.Amount.Decimal)
 	}
 

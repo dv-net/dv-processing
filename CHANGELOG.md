@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
+
+### [0.9.13] - 2026-09-14
 - feat: refund of incoming deposits from hot wallets (`purpose: refund`, `source_tx_hash`): back to the deposit sender without TOTP after `transfers.refund_cooldown` (default 6h), to any external address with TOTP immediately; amount is capped by the deposit, one active refund per deposit
 - feat: withdrawals to external addresses (`purpose: withdrawal`), require owner TOTP
 - feat: new TransferService RPCs: `Cancel` (cancel a scheduled transfer before `execute_after`), `ExecuteNow` (run a scheduled transfer immediately with TOTP), `CheckRefund` (validate a refund and estimate the network fee without creating it)

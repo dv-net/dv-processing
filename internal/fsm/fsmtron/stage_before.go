@@ -71,9 +71,20 @@ func (s *FSM) checkActivateWallet(ctx context.Context, w *workflow.Workflow, _ *
 		return nil
 	}
 
-	// if trx transfer, skip activation and go to the check transfer kind step
+	// trx transfer: the sender holds trx, so it is activated. The recipient is activated
+	// by the processing wallet before sending, the way depends on UseBurnTRXActivation
 	if s.transfer.AssetIdentifier == tron.TrxAssetIdentifier {
-		w.State.SetNextStep(stepBeforeSendingCheckTransferKind)
+		isActivated, err := s.tron.CheckIsWalletActivated(s.transfer.GetToAddress())
+		if err != nil {
+			return fmt.Errorf("check is recipient activated: %w", err)
+		}
+
+		if isActivated {
+			w.State.SetNextStep(stepBeforeSendingCheckTransferKind)
+		} else {
+			w.State.SetNextStep(stepActivateRecipient)
+		}
+
 		return nil
 	}
 
@@ -162,11 +173,17 @@ func (s *FSM) beforeActivationCheckTransferKind(_ context.Context, wf *workflow.
 }
 
 func (s *FSM) activateWalletResources(ctx context.Context, _ *workflow.Workflow, _ *workflow.Stage, step *workflow.Step) error {
+	return s.contractActivation(ctx, step, s.transfer.GetFromAddress())
+}
+
+// contractActivation activates the address through the activator contract,
+// the call is paid with the resources of the processing wallet.
+func (s *FSM) contractActivation(ctx context.Context, step *workflow.Step, address string) error {
 	processingWallet, err := s.bs.Wallets().Processing().GetByBlockchain(ctx, s.transfer.OwnerID, wconstants.BlockchainTypeTron)
 	if err != nil {
 		return fmt.Errorf("get processing wallet: %w", err)
 	}
-	estimate, err := s.tron.EstimateExternalContractActivation(ctx, processingWallet.Address, s.transfer.GetFromAddress())
+	estimate, err := s.tron.EstimateExternalContractActivation(ctx, processingWallet.Address, address)
 	if err != nil {
 		return fmt.Errorf("estimate activation call: %w", err)
 	}
@@ -206,7 +223,7 @@ func (s *FSM) activateWalletResources(ctx context.Context, _ *workflow.Workflow,
 		return fmt.Errorf("not enough energy for activation call")
 	}
 
-	tx, err := s.tron.CreateUnsignedActivationTransaction(ctx, processingWallet.Address, s.transfer.GetFromAddress(), false)
+	tx, err := s.tron.CreateUnsignedActivationTransaction(ctx, processingWallet.Address, address, false)
 	if err != nil {
 		return fmt.Errorf("create unsigned activation transaction: %w", err)
 	}
@@ -234,6 +251,56 @@ func (s *FSM) activateWalletResources(ctx context.Context, _ *workflow.Workflow,
 
 		return nil
 	})
+}
+
+// activateRecipient activates the recipient of a trx transfer from the processing wallet:
+// with the system AccountCreateContract (burning trx) or through the activator contract (using resources)
+func (s *FSM) activateRecipient(ctx context.Context, w *workflow.Workflow, _ *workflow.Stage, step *workflow.Step) error {
+	isActivated, err := s.tron.CheckIsWalletActivated(s.transfer.GetToAddress())
+	if err != nil {
+		return fmt.Errorf("check is recipient activated: %w", err)
+	}
+
+	if isActivated {
+		w.State.SetNextStep(stepBeforeSendingCheckTransferKind)
+		return nil
+	}
+
+	if s.config.Blockchain.Tron.UseBurnTRXActivation {
+		activated, err := s.burnTRXActivation(ctx, s.transfer.GetToAddress())
+		if err != nil {
+			return fmt.Errorf("activate recipient with burn trx: %w", err)
+		}
+
+		if activated {
+			w.State.SetNextStep(stepBeforeSendingCheckTransferKind)
+		}
+
+		return nil
+	}
+
+	if err := s.contractActivation(ctx, step, s.transfer.GetToAddress()); err != nil {
+		return fmt.Errorf("activate recipient through contract: %w", err)
+	}
+
+	return nil
+}
+
+func (s *FSM) waitingActivateRecipientConfirmations(ctx context.Context, w *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
+	txs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, models.TransferTransactionTypeAccountActivation)
+	if err != nil {
+		return fmt.Errorf("find activation transaction: %w", err)
+	}
+	if len(txs) != 1 {
+		return fmt.Errorf("expected exactly 1 activation transaction, got %d; [transfer_id: %s]", len(txs), s.transfer.ID)
+	}
+
+	if err = s.checkTransactionConfirmations(ctx, txs[0], systemMinConfirmationsCount); err != nil {
+		return err
+	}
+
+	w.State.SetNextStep(stepBeforeSendingCheckTransferKind)
+	return nil
 }
 
 func (s *FSM) waitingResourcesActivateWalletConfirmations(ctx context.Context, w *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
@@ -281,48 +348,62 @@ func (s *FSM) waitingExternalActivateWalletConfirmations(ctx context.Context, w 
 }
 
 func (s *FSM) activateWalletBurnTRX(ctx context.Context, _ *workflow.Workflow, _ *workflow.Stage, step *workflow.Step) error {
-	// get processing wallet by owner id
-	processingWallet, err := s.bs.Wallets().Processing().GetByBlockchain(ctx, s.transfer.OwnerID, wconstants.BlockchainTypeTron)
+	activated, err := s.burnTRXActivation(ctx, s.transfer.GetFromAddress())
 	if err != nil {
-		return fmt.Errorf("get processing wallet: %w", err)
+		return err
 	}
 
-	// check processing wallet trx balance
-	balance, err := s.getBalance(ctx, processingWallet.Address, tron.TrxAssetIdentifier)
-	if err != nil {
-		return fmt.Errorf("get balance: %w", err)
-	}
-
-	accountActivationFee, err := s.tron.EstimateActivationFee(ctx, processingWallet.Address, s.transfer.GetFromAddress())
-	if err != nil {
-		return fmt.Errorf("estimate system activation transaction: %w", err)
-	}
-
-	if accountActivationFee.Trx.IsZero() {
+	if activated {
 		step.State.SetNextStep(stepBeforeSendingCheckTransferKind)
-		return nil
-	}
-
-	if balance.LessThanOrEqual(accountActivationFee.Trx) {
-		return fmt.Errorf("processing wallet balance is less than %s trx", accountActivationFee.Trx.String())
-	}
-
-	// get wallet creds
-	wcreds, err := s.getWalletCreds(ctx, s.transfer.OwnerID, uint32(processingWallet.Sequence)) //nolint:gosec
-	if err != nil {
-		return fmt.Errorf("get wallet creds: %w", err)
-	}
-
-	_, err = s.systemActivation(ctx, wcreds, s.transfer.GetFromAddress())
-	if err != nil {
-		return fmt.Errorf("system activation: %w", err)
 	}
 
 	return nil
 }
 
+// burnTRXActivation activates the address with the system AccountCreateContract sent by the processing wallet,
+// the activation fee is burnt from its trx balance. It returns true when the address is already activated.
+func (s *FSM) burnTRXActivation(ctx context.Context, address string) (bool, error) {
+	// get processing wallet by owner id
+	processingWallet, err := s.bs.Wallets().Processing().GetByBlockchain(ctx, s.transfer.OwnerID, wconstants.BlockchainTypeTron)
+	if err != nil {
+		return false, fmt.Errorf("get processing wallet: %w", err)
+	}
+
+	// check processing wallet trx balance
+	balance, err := s.getBalance(ctx, processingWallet.Address, tron.TrxAssetIdentifier)
+	if err != nil {
+		return false, fmt.Errorf("get balance: %w", err)
+	}
+
+	accountActivationFee, err := s.tron.EstimateActivationFee(ctx, processingWallet.Address, address)
+	if err != nil {
+		return false, fmt.Errorf("estimate system activation transaction: %w", err)
+	}
+
+	if accountActivationFee.Trx.IsZero() {
+		return true, nil
+	}
+
+	if balance.LessThanOrEqual(accountActivationFee.Trx) {
+		return false, fmt.Errorf("processing wallet balance is less than %s trx", accountActivationFee.Trx.String())
+	}
+
+	// get wallet creds
+	wcreds, err := s.getWalletCreds(ctx, s.transfer.OwnerID, uint32(processingWallet.Sequence)) //nolint:gosec
+	if err != nil {
+		return false, fmt.Errorf("get wallet creds: %w", err)
+	}
+
+	_, err = s.systemActivation(ctx, wcreds, address)
+	if err != nil {
+		return false, fmt.Errorf("system activation: %w", err)
+	}
+
+	return false, nil
+}
+
 // waitingActivateWalletConfirmations
-func (s *FSM) waitingActivateWalletConfirmations(ctx context.Context, _ *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
+func (s *FSM) waitingActivateWalletConfirmations(ctx context.Context, w *workflow.Workflow, _ *workflow.Stage, _ *workflow.Step) error {
 	txs, err := s.st.TransferTransactions().FindTransactionByType(ctx, s.transfer.ID, models.TransferTransactionTypeAccountActivation)
 	if err != nil {
 		return fmt.Errorf("find activation transaction: %w", err)
@@ -336,7 +417,12 @@ func (s *FSM) waitingActivateWalletConfirmations(ctx context.Context, _ *workflo
 		return err
 	}
 
-	return s.bs.Wallets().Hot().ActivateWallet(ctx, s.transfer.OwnerID, wconstants.BlockchainTypeTron, s.transfer.GetFromAddress())
+	if err = s.bs.Wallets().Hot().ActivateWallet(ctx, s.transfer.OwnerID, wconstants.BlockchainTypeTron, s.transfer.GetFromAddress()); err != nil {
+		return err
+	}
+
+	w.State.SetNextStep(stepBeforeSendingCheckTransferKind)
+	return nil
 }
 
 // beforeSendingCheckTransferKind checks the transfer kind.

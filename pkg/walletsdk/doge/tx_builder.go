@@ -202,8 +202,13 @@ func (s *TxBuilder) CalculateTxSize(feePerByte decimal.Decimal) CalculateTxSizeD
 	txStrippedSize := decimal.NewFromInt(int64(s.tx.SerializeSizeStripped()))
 
 	weight := txStrippedSize.Mul(decimal.NewFromInt(3)).Add(txFullSize)
-	vSize := weight.Div(decimal.NewFromInt(4))
-	totalFee := vSize.Mul(feePerByte).Ceil()
+	// the node rounds the virtual size up
+	vSize := weight.Div(decimal.NewFromInt(4)).Ceil()
+
+	// A signature can get one byte longer when the transaction is signed again with the final fee,
+	// so one extra byte per input is paid for to stay above the node minimum relay fee.
+	feeSize := vSize.Add(decimal.NewFromInt(int64(len(s.tx.TxIn))))
+	totalFee := feeSize.Mul(feePerByte).Ceil()
 
 	return CalculateTxSizeData{
 		TxFullSize:     txFullSize,

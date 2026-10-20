@@ -34,14 +34,14 @@ func (t *BCH) EstimateFeePerByte() (decimal.Decimal, error) {
 // Transactions paying less are rejected with "min relay fee not met".
 func (t *BCH) MinRelayFeePerByte() (decimal.Decimal, error) {
 	var networkInfo struct {
-		RelayFee float64 `json:"relayfee"`
+		RelayFee float64 `json:"relayfee"` //nolint:tagliatelle // node rpc field name
 	}
 	if err := callNodeRaw(t.node.RawRequest, "getnetworkinfo", &networkInfo); err != nil {
 		return decimal.Zero, err
 	}
 
 	var mempoolInfo struct {
-		MempoolMinFee float64 `json:"mempoolminfee"`
+		MempoolMinFee float64 `json:"mempoolminfee"` //nolint:tagliatelle // node rpc field name
 	}
 	if err := callNodeRaw(t.node.RawRequest, "getmempoolinfo", &mempoolInfo); err != nil {
 		return decimal.Zero, err

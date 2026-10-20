@@ -84,10 +84,24 @@ func (s *Service) processTronProcessingWallets(ctx context.Context, req *CreateT
 	amount := req.Amount.Decimal
 	if req.WholeAmount {
 		amount = balanceAsset
+
+		// the same as in fsm sending stage
+		if req.AssetIdentifier == tron.TrxAssetIdentifier {
+			activationFee, err := s.blockchains.Tron.EstimateActivationFee(ctx, req.FromAddresses[0], req.ToAddresses[0])
+			if err != nil {
+				return fmt.Errorf("sub activation fee from amount: %w", err)
+			}
+
+			amount = amount.Sub(activationFee.Trx)
+		}
 	}
 
 	if amount.GreaterThan(balanceAsset) {
 		return fmt.Errorf("%w for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughBalance), req.Amount.Decimal, balanceAsset)
+	}
+
+	if !amount.IsPositive() {
+		return fmt.Errorf("%w for transfer. available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughBalance), balanceAsset)
 	}
 
 	assetDecimals, err := s.eproxySvc.AssetDecimals(ctx, wconstants.BlockchainTypeTron, req.AssetIdentifier)
@@ -121,16 +135,35 @@ func (s *Service) processTronProcessingWallets(ctx context.Context, req *CreateT
 
 		req.stateData["handler_current_balance_trx"] = balanceTrx
 
-		if req.AssetIdentifier != tron.TrxAssetIdentifier {
-			if balanceTrx.LessThan(estimate.Trx) {
-				return fmt.Errorf("%w for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughBalance), estimate.Trx, balanceTrx)
+		// bandwidth is not burned when the wallet has enough of it, including the free daily one
+		resources, err := s.blockchains.Tron.TotalAvailableResources(req.FromAddresses[0])
+		if err != nil {
+			return fmt.Errorf("get processing wallet available resources: %w", err)
+		}
+
+		req.stateData["handler_available_resources"] = resources
+
+		burnFee, err := s.blockchains.Tron.BurnTrxFee(ctx, *estimate, *resources)
+		if err != nil {
+			return fmt.Errorf("estimate burn fee: %w", err)
+		}
+
+		req.stateData["handler_burn_fee"] = burnFee
+
+		needTRXForTransfer := burnFee
+		if req.AssetIdentifier == tron.TrxAssetIdentifier {
+			// whole amount pays the fee from the amount itself
+			if req.WholeAmount {
+				amount = amount.Sub(burnFee)
+				req.stateData["handler_transfer_amount"] = amount
 			}
-		} else {
-			needTRXForTransfer := amount.Add(estimate.Trx)
-			// If the asset is TRX, we need to check the balance against the estimated TRX
-			if balanceTrx.LessThan(needTRXForTransfer) {
-				return fmt.Errorf("%w for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughBalance), needTRXForTransfer, balanceTrx)
-			}
+
+			// If the asset is TRX, we need to check the balance against the amount and the fee
+			needTRXForTransfer = amount.Add(burnFee)
+		}
+
+		if !amount.IsPositive() || balanceTrx.LessThan(needTRXForTransfer) {
+			return fmt.Errorf("%w for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughBalance), needTRXForTransfer, balanceTrx)
 		}
 
 	case constants.TronTransferKindResources:
@@ -357,13 +390,6 @@ func (s *Service) processResources(ctx context.Context, req *CreateTransferReque
 		return fmt.Errorf("estimate transfer with delegate resources: %w", err)
 	}
 
-	// check available bandwidth on processing wallet
-	if res.NeedBandwidthFromProcessingWallet.IsPositive() {
-		if processingResources.Bandwidth.LessThan(res.NeedBandwidthFromProcessingWallet) {
-			return fmt.Errorf("processing wallet %w bandwidth for transfer on processing wallet. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughResources), res.NeedBandwidthFromProcessingWallet, processingResources.Bandwidth)
-		}
-	}
-
 	// get active tron transfers
 	activeTronTransfers, err := s.GetActiveTronTransfersResources(ctx)
 	if err != nil {
@@ -379,11 +405,8 @@ func (s *Service) processResources(ctx context.Context, req *CreateTransferReque
 	}
 
 	// check transfer bandwidth
-	if processingResources.Bandwidth.Sub(activeTronTransfers.Bandwidth).LessThan(res.NeedBandwidthFromProcessingWallet) {
-		return fmt.Errorf(
-			"check active tron transfers. processing wallet %w bandwidth for transfer on processing wallet. required: %s, available: %s / active transfers bandwidth: %s",
-			rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughResources), res.NeedBandwidthFromProcessingWallet, processingResources.Bandwidth, activeTronTransfers.Bandwidth,
-		)
+	if err := res.CheckProcessingBandwidth(*processingResources, activeTronTransfers.Bandwidth); err != nil {
+		return fmt.Errorf("check active tron transfers. processing wallet: %w", err)
 	}
 
 	activation := &tron.ActivationResources{}

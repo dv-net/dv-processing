@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning]https://semver.org/spec/v2.0.0.
 ## Releases
 
 ### Unreleased
+- feat: add support calculate free bandwidth for TRON transfers from processing wallet
 
 ### [0.9.13] - 2026-09-14
 - feat: refund of incoming deposits from hot wallets (`purpose: refund`, `source_tx_hash`): back to the deposit sender without TOTP after `transfers.refund_cooldown` (default 6h), to any external address with TOTP immediately; amount is capped by the deposit, one active refund per deposit

@@ -55,10 +55,9 @@ func (s *FSM) sending(ctx context.Context, _ *workflow.Workflow, _ *workflow.Sta
 
 			amount = amount.Sub(fee.Trx)
 
-			// if transfer is from hot wallet and kind is burn trx, check if we have enough bandwidth
+			// if kind is burn trx, check if we have enough bandwidth (including the free daily one)
 			// if not, use trx for transfer
-			if s.transfer.WalletFromType == constants.WalletTypeHot &&
-				constants.TronTransferKind(s.transfer.Kind.String) == constants.TronTransferKindBurnTRX {
+			if constants.TronTransferKind(s.transfer.Kind.String) == constants.TronTransferKindBurnTRX {
 				resourcesData, err := s.tron.TotalAvailableResources(fromAddress)
 				if err != nil {
 					return fmt.Errorf("get total available resources: %w", err)
@@ -69,10 +68,12 @@ func (s *FSM) sending(ctx context.Context, _ *workflow.Workflow, _ *workflow.Sta
 					return fmt.Errorf("estimate resources: %w", err)
 				}
 
-				// if not enough bandwidth, use trx
-				if resourcesData.Bandwidth.LessThan(estimate.Bandwidth) {
-					amount = amount.Sub(estimate.Trx)
+				burnFee, err := s.tron.BurnTrxFee(ctx, *estimate, *resourcesData)
+				if err != nil {
+					return fmt.Errorf("estimate burn fee: %w", err)
 				}
+
+				amount = amount.Sub(burnFee)
 			}
 		}
 	}

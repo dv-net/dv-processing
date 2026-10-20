@@ -411,20 +411,14 @@ func (s *FSM) sendTRXForBurn(ctx context.Context, wf *workflow.Workflow, _ *work
 		return fmt.Errorf("get balance: %w", err)
 	}
 
-	sentTrxAmount := estimate.Trx
-
-	chainParams, err := s.tron.ChainParams(ctx)
-	if err != nil {
-		return fmt.Errorf("gte chain params: %w", err)
-	}
-
 	resourcesData, err := s.tron.TotalAvailableResources(s.transfer.GetFromAddress())
 	if err != nil {
 		return fmt.Errorf("get total available resources: %w", err)
 	}
 
-	if resourcesData.Bandwidth.GreaterThanOrEqual(estimate.Bandwidth) {
-		sentTrxAmount = sentTrxAmount.Sub(tron.NewBandwidth(estimate.Bandwidth).ToTRX(chainParams.TransactionFee).ToDecimal())
+	sentTrxAmount, err := s.tron.BurnTrxFee(ctx, *estimate, *resourcesData)
+	if err != nil {
+		return fmt.Errorf("estimate burn fee: %w", err)
 	}
 
 	if balance.LessThan(sentTrxAmount) {
@@ -500,24 +494,30 @@ func (s *FSM) delegateResources(ctx context.Context, wf *workflow.Workflow, _ *w
 		return fmt.Errorf("estimate transfer resources: %w", err)
 	}
 
-	// get available resources on processing wallet
-	processingResources, err := s.tron.AvailableForDelegateResources(ctx, processingWallet.Address)
-	if err != nil {
-		return fmt.Errorf("get processing wallet available resources: %w", err)
-	}
-
+	// processing wallet sends by itself, so all its resources can be used, including the free bandwidth
 	if s.transfer.WalletFromType == constants.WalletTypeProcessing {
-		if processingResources.Bandwidth.LessThan(estimate.Bandwidth) {
-			return fmt.Errorf("not enough bandwidth for transfer on processing wallet. required: %s, available: %s", estimate.Bandwidth, processingResources.Bandwidth)
+		ownResources, err := s.tron.TotalAvailableResources(processingWallet.Address)
+		if err != nil {
+			return fmt.Errorf("get processing wallet available resources: %w", err)
 		}
 
-		if processingResources.Energy.LessThan(estimate.Energy) {
-			return fmt.Errorf("not enough energy for transfer on processing wallet. required: %s, available: %s", estimate.Energy, processingResources.Energy)
+		if ownResources.Bandwidth.LessThan(estimate.Bandwidth) {
+			return fmt.Errorf("not enough bandwidth for transfer on processing wallet. required: %s, available: %s", estimate.Bandwidth, ownResources.Bandwidth)
+		}
+
+		if ownResources.Energy.LessThan(estimate.Energy) {
+			return fmt.Errorf("not enough energy for transfer on processing wallet. required: %s, available: %s", estimate.Energy, ownResources.Energy)
 		}
 
 		wf.State.SetNextStage(stageSending).SetNextStep(stepSending)
 
 		return nil
+	}
+
+	// get available resources on processing wallet
+	processingResources, err := s.tron.AvailableForDelegateResources(ctx, processingWallet.Address)
+	if err != nil {
+		return fmt.Errorf("get processing wallet available resources: %w", err)
 	}
 
 	// get available resources on hot wallet
@@ -537,10 +537,8 @@ func (s *FSM) delegateResources(ctx context.Context, wf *workflow.Workflow, _ *w
 		return fmt.Errorf("estimate transfer with delegate resources: %w", err)
 	}
 
-	if res.NeedBandwidthFromProcessingWallet.IsPositive() {
-		if processingResources.Bandwidth.LessThan(res.NeedBandwidthFromProcessingWallet) {
-			return fmt.Errorf("not enough bandwidth for transfer on processing wallet. required: %s, available: %s", res.NeedBandwidthFromProcessingWallet, processingResources.Bandwidth)
-		}
+	if err := res.CheckProcessingBandwidth(*processingResources, decimal.Zero); err != nil {
+		return fmt.Errorf("check processing wallet bandwidth: %w", err)
 	}
 
 	// get wallet creds

@@ -406,7 +406,7 @@ func (t *Tron) EstimateTransferResources(
 			var err error
 			data, err = t.node.Transfer(fromAddress, toAddress, amount.IntPart())
 			if err != nil && !strings.Contains(err.Error(), "reset by peer") {
-				return fmt.Errorf("transfer: %w", retry.ErrExit)
+				return fmt.Errorf("%w: %w", err, retry.ErrExit)
 			}
 			return err
 		})
@@ -420,7 +420,7 @@ func (t *Tron) EstimateTransferResources(
 			var err error
 			data, err = t.node.TRC20Send(fromAddress, toAddress, contractAddress, amount.BigInt(), 100*1e6)
 			if err != nil && !strings.Contains(err.Error(), "reset by peer") {
-				return fmt.Errorf("cannot make tron transaction: %w", retry.ErrExit)
+				return fmt.Errorf("%w: %w", err, retry.ErrExit)
 			}
 			return err
 		})
@@ -451,7 +451,7 @@ func (t *Tron) EstimateTransferResources(
 			var err error
 			data, err = t.node.TriggerConstantContract(fromAddress, contractAddress, "transfer(address,uint256)", jsonString)
 			if err != nil && !strings.Contains(err.Error(), "reset by peer") {
-				return fmt.Errorf("cannot trigger contract: %w", retry.ErrExit)
+				return fmt.Errorf("%w: %w", err, retry.ErrExit)
 			}
 			return err
 		})

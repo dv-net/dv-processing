@@ -179,6 +179,15 @@ func NewFSM( //nolint:funlen
 					Func: fsm.waitingActivateWalletConfirmations,
 				},
 				{
+					Name:     stepActivateRecipient,
+					Func:     fsm.activateRecipient,
+					BeforeFn: fsm.createTransferStepWh,
+				},
+				{
+					Name: stepWaitingActivateRecipientConfirmations,
+					Func: fsm.waitingActivateRecipientConfirmations,
+				},
+				{
 					Name: stepBeforeSendingCheckTransferKind,
 					Func: fsm.beforeSendingCheckTransferKind,
 				},

@@ -706,7 +706,7 @@ func (s *FSM) updateSystemTransactionStatus(ctx context.Context, tx *trxv2.Trans
 
 func (s *FSM) prepareTransferTransactionTypeByStep() (*models.TransferTransactionType, error) {
 	switch s.wf.CurrentStep().Name {
-	case stepActivateWallet, stepActiveWalletResources, stepActivateWalletBurnTRX:
+	case stepActivateWallet, stepActiveWalletResources, stepActivateWalletBurnTRX, stepActivateRecipient:
 		return utils.Pointer(models.TransferTransactionTypeAccountActivation), nil
 	case stepSendTRXForBurn:
 		return utils.Pointer(models.TransferTransactionTypeSendBurnBaseAsset), nil

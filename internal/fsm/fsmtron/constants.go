@@ -25,6 +25,8 @@ const (
 	stepActivateWalletBurnTRX                       = "activate_wallet_burn_trx"
 	stepActivateWallet                              = "activate_wallet"
 	stepWaitingActivateWalletConfirmations          = "waiting_activate_confirmations"
+	stepActivateRecipient                           = "activate_recipient"
+	stepWaitingActivateRecipientConfirmations       = "waiting_activate_recipient_confirmations"
 	stepBeforeSendingCheckTransferKind              = "before_sending_check_transfer_kind"
 	stepSendTRXForBurn                              = "send_trx_for_burn"
 	stepWaitingSendTRXForBurnConfirmations          = "waiting_send_trx_for_burn_confirmations"
@@ -45,7 +47,7 @@ const (
 )
 
 var exitOnFailedSteps = map[string][]string{
-	stageBeforeSending: {stepValidateRequest, stepCheckActivateWallet, stepActivateWallet, stepActiveWalletResources, stepActivateWalletBurnTRX, stepBeforeSendingCheckTransferKind, stepSendTRXForBurn, stepDelegateResources},
+	stageBeforeSending: {stepValidateRequest, stepCheckActivateWallet, stepActivateWallet, stepActiveWalletResources, stepActivateWalletBurnTRX, stepActivateRecipient, stepBeforeSendingCheckTransferKind, stepSendTRXForBurn, stepDelegateResources},
 	stageSending:       {stepSending},
 	stageAfterSending:  {stepAfterSendingCheckTransferKind, stepReclaimResources},
 }

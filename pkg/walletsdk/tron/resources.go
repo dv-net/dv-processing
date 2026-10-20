@@ -219,6 +219,11 @@ func (t *Tron) AvailableBandwidthWithoutFree(res *api.AccountResourceMessage) de
 	return decimal.NewFromInt(res.NetLimit - res.GetNetUsed())
 }
 
+// AvailableFreeBandwidth calculates the free daily bandwidth left on the account.
+func (t *Tron) AvailableFreeBandwidth(res *api.AccountResourceMessage) decimal.Decimal {
+	return decimal.NewFromInt(max(res.GetFreeNetLimit()-res.GetFreeNetUsed(), 0))
+}
+
 func (t *Tron) TotalEnergyLimit(res *api.AccountResourceMessage) decimal.Decimal {
 	return decimal.NewFromInt(res.EnergyLimit)
 }
@@ -238,6 +243,7 @@ type Resources struct {
 	Bandwidth      decimal.Decimal `json:"bandwidth"`
 	TotalEnergy    decimal.Decimal `json:"total_energy"`
 	TotalBandwidth decimal.Decimal `json:"total_bandwidth"`
+	FreeBandwidth  decimal.Decimal `json:"free_bandwidth"`
 }
 
 type SystemResources struct {
@@ -279,6 +285,7 @@ func (t *Tron) AvailableForDelegateResources(ctx context.Context, addr string) (
 		TotalEnergy:    t.TotalEnergyLimit(accountResources),
 		Bandwidth:      t.AvailableBandwidthWithoutFree(accountResources),
 		TotalBandwidth: t.TotalBandwidthLimit(accountResources),
+		FreeBandwidth:  t.AvailableFreeBandwidth(accountResources),
 	}
 	if stackedEnergy.LessThan(resources.Energy) {
 		resources.Energy = stackedEnergy
@@ -475,22 +482,56 @@ func (t *Tron) EstimateBandwidth(tx *core.Transaction) (decimal.Decimal, error) 
 	return decimal.NewFromInt(int64(proto.Size(tx))).Add(decimal.NewFromInt(64)), nil
 }
 
-// EstimateTransferWithDelegateResourcesRequest is the request for EstimateTransferWithDelegateResources.
-//
-// All fields are required.
 type EstimateTransferWithDelegateResourcesRequest struct {
-	ProcessingAddress string `json:"processing_address"`
-	HotWalletAddress  string `json:"hot_wallet_address"`
-
-	ProcessingResources Resources `json:"processing_resources"`
-	HotResources        Resources `json:"hot_resources"`
-
-	Estimate EstimateTransferResourcesResult `json:"estimate"`
+	ProcessingAddress   string                          `json:"processing_address"`
+	HotWalletAddress    string                          `json:"hot_wallet_address"`
+	ProcessingResources Resources                       `json:"processing_resources"`
+	HotResources        Resources                       `json:"hot_resources"`
+	Estimate            EstimateTransferResourcesResult `json:"estimate"`
 }
 
 type EstimateTransferWithDelegateResourcesResponse struct {
-	NeedToDelegate                    Resources       `json:"need_to_delegate"`
-	NeedBandwidthFromProcessingWallet decimal.Decimal `json:"need_bandwidth_from_processing_wallet"`
+	NeedToDelegate                          Resources       `json:"need_to_delegate"`
+	NeedBandwidthFromProcessingWallet       decimal.Decimal `json:"need_bandwidth_from_processing_wallet"`
+	NeedStakedBandwidthFromProcessingWallet decimal.Decimal `json:"need_staked_bandwidth_from_processing_wallet"`
+}
+
+// CheckProcessingBandwidth checks that the processing wallet has enough bandwidth for the transfer.
+// reserved is the bandwidth already reserved by other active transfers.
+func (r *EstimateTransferWithDelegateResourcesResponse) CheckProcessingBandwidth(available Resources, reserved decimal.Decimal) error {
+	staked := available.Bandwidth.Sub(reserved)
+	if staked.LessThan(r.NeedStakedBandwidthFromProcessingWallet) {
+		return fmt.Errorf(
+			"%w staked bandwidth on processing wallet. required: %s, available: %s, reserved by active transfers: %s",
+			rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughResources), r.NeedStakedBandwidthFromProcessingWallet, available.Bandwidth, reserved,
+		)
+	}
+
+	total := staked.Add(available.FreeBandwidth)
+	if total.LessThan(r.NeedBandwidthFromProcessingWallet) {
+		return fmt.Errorf(
+			"%w bandwidth on processing wallet. required: %s, available: %s (staked) + %s (free), reserved by active transfers: %s",
+			rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughResources), r.NeedBandwidthFromProcessingWallet, available.Bandwidth, available.FreeBandwidth, reserved,
+		)
+	}
+
+	return nil
+}
+
+// BurnTrxFee returns how much TRX the sender burns for the transfer.
+// The bandwidth cost is skipped when the sender has enough bandwidth (staked or free daily),
+// available must come from TotalAvailableResources. The energy cost is always included.
+func (t *Tron) BurnTrxFee(ctx context.Context, estimate EstimateTransferResourcesResult, available Resources) (decimal.Decimal, error) {
+	if available.Bandwidth.LessThan(estimate.Bandwidth) {
+		return estimate.Trx, nil
+	}
+
+	chainParams, err := t.ChainParams(ctx)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("chain params: %w", err)
+	}
+
+	return estimate.Trx.Sub(NewBandwidth(estimate.Bandwidth).ToTRX(chainParams.TransactionFee).ToDecimal()), nil
 }
 
 func (t *Tron) EstimateTransferWithDelegateResources(ctx context.Context, req EstimateTransferWithDelegateResourcesRequest) (*EstimateTransferWithDelegateResourcesResponse, error) {
@@ -504,10 +545,6 @@ func (t *Tron) EstimateTransferWithDelegateResources(ctx context.Context, req Es
 
 	// processing + hot wallet
 	totalAvailableEnergy := req.ProcessingResources.Energy.Add(req.HotResources.Energy)
-	totalAvailableBandwidth := req.ProcessingResources.Bandwidth
-	if req.HotResources.Bandwidth.GreaterThanOrEqual(req.Estimate.Bandwidth) {
-		totalAvailableBandwidth = totalAvailableBandwidth.Add(req.HotResources.Bandwidth)
-	}
 
 	// add coefficients to energy and bandwidth
 	req.Estimate.Energy = req.Estimate.Energy.Mul(ResourceCoefficient).Ceil()
@@ -516,11 +553,6 @@ func (t *Tron) EstimateTransferWithDelegateResources(ctx context.Context, req Es
 	// check energy
 	if req.Estimate.Energy.GreaterThan(totalAvailableEnergy) {
 		return nil, fmt.Errorf("%w energy for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughResources), req.Estimate.Energy, totalAvailableEnergy)
-	}
-
-	// check bandwidth
-	if req.Estimate.Bandwidth.GreaterThan(totalAvailableBandwidth) {
-		return nil, fmt.Errorf("%w bandwidth for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughResources), req.Estimate.Bandwidth, totalAvailableBandwidth)
 	}
 
 	needToDelegate := Resources{}
@@ -532,9 +564,11 @@ func (t *Tron) EstimateTransferWithDelegateResources(ctx context.Context, req Es
 		needToDelegate.Bandwidth = req.Estimate.Bandwidth
 	}
 
-	needBandwithFromProcessingWallet := needToDelegate.Bandwidth
+	// bandwidth of processing wallet's own transactions sent before / after the delegation
+	systemBandwidthBefore, systemBandwidthAfter := decimal.Zero, decimal.Zero
 
-	allTransactions := []*core.Transaction{}
+	delegateTransactions := []*core.Transaction{}
+	reclaimTransactions := []*core.Transaction{}
 
 	chainParams, err := t.ChainParams(ctx)
 	if err != nil {
@@ -557,7 +591,8 @@ func (t *Tron) EstimateTransferWithDelegateResources(ctx context.Context, req Es
 			return nil, fmt.Errorf("fake reclaim energy tx: %w", err)
 		}
 
-		allTransactions = append(allTransactions, fakeDelegateTx, fakeReclaimTx)
+		delegateTransactions = append(delegateTransactions, fakeDelegateTx)
+		reclaimTransactions = append(reclaimTransactions, fakeReclaimTx)
 	}
 
 	// check is wallet activated
@@ -574,15 +609,19 @@ func (t *Tron) EstimateTransferWithDelegateResources(ctx context.Context, req Es
 					return nil, fmt.Errorf("estimate system wallet activation: %w", err)
 				}
 
-				needBandwithFromProcessingWallet = needBandwithFromProcessingWallet.Add(estimateSystemActivation.Bandwidth)
+				systemBandwidthBefore = systemBandwidthBefore.Add(estimateSystemActivation.Bandwidth)
 			}
 
 			// if wallet is not activated, after activation it will have 600 free bandwidth
 			if needToDelegate.Bandwidth.IsPositive() && needToDelegate.Bandwidth.LessThan(decimal.NewFromInt(chainParams.FreeNetLimit)) {
-				needBandwithFromProcessingWallet = needBandwithFromProcessingWallet.Sub(needToDelegate.Bandwidth)
 				needToDelegate.Bandwidth = decimal.Zero
 			}
 		}
+	}
+
+	// check bandwidth: checked after activation, a new wallet pays the transfer with its free bandwidth
+	if needToDelegate.Bandwidth.GreaterThan(req.ProcessingResources.Bandwidth) {
+		return nil, fmt.Errorf("%w bandwidth for transfer. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughResources), needToDelegate.Bandwidth, req.ProcessingResources.Bandwidth)
 	}
 
 	// process bandwidth
@@ -601,22 +640,39 @@ func (t *Tron) EstimateTransferWithDelegateResources(ctx context.Context, req Es
 			return nil, fmt.Errorf("fake reclaim bandwidth tx: %w", err)
 		}
 
-		allTransactions = append(allTransactions, fakeDelegateTx, fakeReclaimTx)
+		delegateTransactions = append(delegateTransactions, fakeDelegateTx)
+		reclaimTransactions = append(reclaimTransactions, fakeReclaimTx)
 	}
 
-	// estimate bandwidth for all transactions
-	for _, tx := range allTransactions {
+	// estimate bandwidth for system transactions
+	for _, tx := range delegateTransactions {
 		estimatedBandwidth, err := t.EstimateBandwidth(tx)
 		if err != nil {
 			return nil, fmt.Errorf("estimate bandwidth: %w", err)
 		}
 
-		needBandwithFromProcessingWallet = needBandwithFromProcessingWallet.Add(estimatedBandwidth)
+		systemBandwidthBefore = systemBandwidthBefore.Add(estimatedBandwidth)
+	}
+
+	for _, tx := range reclaimTransactions {
+		estimatedBandwidth, err := t.EstimateBandwidth(tx)
+		if err != nil {
+			return nil, fmt.Errorf("estimate bandwidth: %w", err)
+		}
+
+		systemBandwidthAfter = systemBandwidthAfter.Add(estimatedBandwidth)
+	}
+
+	// without bandwidth delegation the system transactions can be paid by any bandwidth
+	needStakedBandwidth := decimal.Zero
+	if needToDelegate.Bandwidth.IsPositive() {
+		needStakedBandwidth = needToDelegate.Bandwidth.Add(systemBandwidthBefore)
 	}
 
 	res := &EstimateTransferWithDelegateResourcesResponse{
-		NeedToDelegate:                    needToDelegate,
-		NeedBandwidthFromProcessingWallet: needBandwithFromProcessingWallet,
+		NeedToDelegate:                          needToDelegate,
+		NeedBandwidthFromProcessingWallet:       needToDelegate.Bandwidth.Add(systemBandwidthBefore).Add(systemBandwidthAfter),
+		NeedStakedBandwidthFromProcessingWallet: needStakedBandwidth,
 	}
 
 	return res, nil

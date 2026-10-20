@@ -289,6 +289,14 @@ func (s *FSM) getFeePerByte() (decimal.Decimal, error) {
 		return decimal.Zero, fmt.Errorf("fee per byte is not estimated by the node and not set in the config")
 	}
 
+	// The node estimate can be below the node minimum relay fee, and the transaction would be rejected.
+	minFeePerByte, err := s.doge.MinRelayFeePerByte()
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("get min relay fee per byte: %w", err)
+	}
+
+	feePerByte = decimal.Max(feePerByte, minFeePerByte)
+
 	var maxFeePerByte decimal.Decimal
 	if s.transfer.FeeMax.Valid {
 		maxFeePerByte = s.transfer.FeeMax.Decimal

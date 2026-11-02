@@ -248,13 +248,24 @@ func (s *transfersServer) CheckRefund(
 	}
 
 	res := &transferv1.CheckRefundResponse{
-		FeeFromAmount: result.FeeFromAmount,
-		ToSender:      result.ToSender,
+		FeeFromAmount:      result.FeeFromAmount,
+		ToSender:           result.ToSender,
+		ActivationRequired: result.ActivationRequired,
 	}
 
 	if result.EstimatedFee != nil {
 		fee := result.EstimatedFee.String()
 		res.EstimatedFee = &fee
+	}
+
+	if result.FeeBalance != nil {
+		balance := result.FeeBalance.String()
+		res.FeeBalance = &balance
+	}
+
+	if result.FeeShortage != nil {
+		shortage := result.FeeShortage.String()
+		res.FeeShortage = &shortage
 	}
 
 	return connect.NewResponse(res), nil

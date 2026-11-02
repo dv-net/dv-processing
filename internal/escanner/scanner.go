@@ -587,14 +587,30 @@ func (s *scanner) checksForEvent(event *transactionsv2.Event) []eventCheck {
 	return checks
 }
 
-// handleRollback handles blockchain rollback by getting the new starting point from incidents API
+// rollbackStartingBlock returns the block to restart parsing from after a rollback.
+// It uses a recent rollback incident from eproxy when the blockchain supports incidents,
+// otherwise it falls back to lastParsedBlock - safeDepth.
+func (s *scanner) rollbackStartingBlock(ctx context.Context) uint64 {
+	if constants.SupportsRollbackIncidents(s.blockchain) {
+		block, found, err := s.bs.EProxy().FindRecentRollbackBlock(ctx, s.blockchain)
+		switch {
+		case err != nil:
+			s.logger.Warnf("get rollback incidents for blockchain %s, using fallback depth: %s", s.blockchain.String(), err)
+		case found:
+			return block
+		default:
+			s.logger.Infof("no recent rollback incident for blockchain %s, using fallback depth", s.blockchain.String())
+		}
+	}
+
+	return uint64(constants.RollbackFallbackBlock(s.blockchain, s.lastParsedBlockHeight.Load())) //nolint:gosec
+}
+
+// handleRollback reverts the scanner to a safe block (see rollbackStartingBlock) and re-parses from there
 func (s *scanner) handleRollback(ctx context.Context) error {
 	s.logger.Infof("Handling rollback incident for blockchain %s", s.blockchain.String())
 
-	newStartingBlock, err := s.bs.EProxy().GetRollbackStartingBlock(ctx, s.blockchain, s.lastParsedBlockHeight.Load())
-	if err != nil {
-		return fmt.Errorf("get rollback starting block: %w", err)
-	}
+	newStartingBlock := s.rollbackStartingBlock(ctx)
 
 	s.logger.Infof("Rolling back to block %d for blockchain %s", newStartingBlock, s.blockchain.String())
 

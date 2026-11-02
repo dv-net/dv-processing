@@ -78,6 +78,10 @@ func RollbackFallbackBlock(blockchain wconstants.BlockchainType, currentBlock in
 	return safe
 }
 
+func SupportsRollbackIncidents(blockchain wconstants.BlockchainType) bool {
+	return blockchain != wconstants.BlockchainTypeTron
+}
+
 // RollbackIncidentMaxAge is the maximum age of a rollback incident to be considered relevant.
 func RollbackIncidentMaxAge() time.Duration { return rollbackIncidentMaxAge }
 

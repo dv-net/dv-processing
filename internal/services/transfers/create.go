@@ -36,6 +36,12 @@ type CreateTransferRequest struct {
 	SourceTxHash *string                   `json:"source_tx_hash"`
 	TOTP         string                    `json:"-"`
 
+	// refundFeeBalance is the native coin balance of the hot wallet paying the token refund fee
+	refundFeeBalance *decimal.Decimal
+	// refundFeeShortage is the native coin missing on the hot wallet to pay the token refund fee
+	refundFeeShortage *decimal.Decimal
+	// refundActivationRequired is set when the tron hot wallet is not activated
+	refundActivationRequired bool
 	// refundToSender is set when the refund destination is the sender of the deposit
 	refundToSender bool
 	// refundEstimatedFee is the network fee paid by the hot wallet for the refund, in the native coin

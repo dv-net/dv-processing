@@ -922,6 +922,9 @@ Service which provides system information
 | estimated_fee | [string](#string) | optional | Estimated network fee paid by the hot wallet in the native coin. Empty if it is calculated only on sending (btc like blockchains) |
 | fee_from_amount | [bool](#bool) |  | The fee is subtracted from the refund amount (refunds of the native coin) |
 | to_sender | [bool](#bool) |  | The destination is the sender of the deposit: the refund does not require TOTP |
+| fee_balance | [string](#string) | optional | Native coin balance of the hot wallet that pays the fee (refunds of tokens only) |
+| fee_shortage | [string](#string) | optional | Native coin to add to the hot wallet to pay the fee, &#34;0&#34; when the fee is covered (tokens only) |
+| activation_required | [bool](#bool) |  | TRON: the hot wallet is not activated, it must receive TRX before the refund |
 
 
 

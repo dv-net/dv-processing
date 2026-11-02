@@ -160,7 +160,7 @@ message CreateRequest {
   optional string totp = 14;
 }
 
-message CreateResponse { Transfer item = 1; }
+message CreateResponse {Transfer item = 1;}
 
 /*
 
@@ -173,7 +173,7 @@ message CancelRequest {
   string request_id = 2;
 }
 
-message CancelResponse { Transfer item = 1; }
+message CancelResponse {Transfer item = 1;}
 
 /*
 
@@ -187,7 +187,7 @@ message ExecuteNowRequest {
   string totp = 3;
 }
 
-message ExecuteNowResponse { Transfer item = 1; }
+message ExecuteNowResponse {Transfer item = 1;}
 
 /*
 
@@ -215,6 +215,12 @@ message CheckRefundResponse {
   bool fee_from_amount = 2;
   // The destination is the sender of the deposit: the refund does not require TOTP
   bool to_sender = 3;
+  // Native coin balance of the hot wallet that pays the fee (refunds of tokens only)
+  optional string fee_balance = 4;
+  // Native coin to add to the hot wallet to pay the fee, "0" when the fee is covered (tokens only)
+  optional string fee_shortage = 5;
+  // TRON: the hot wallet is not activated, it must receive TRX before the refund
+  bool activation_required = 6;
 }
 
 /*
@@ -223,5 +229,5 @@ message CheckRefundResponse {
 
 */
 
-message GetByRequestIDRequest { string request_id = 1; }
-message GetByRequestIDResponse { Transfer item = 1; }
+message GetByRequestIDRequest {string request_id = 1;}
+message GetByRequestIDResponse {Transfer item = 1;}

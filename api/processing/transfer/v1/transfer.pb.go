@@ -1208,9 +1208,15 @@ type CheckRefundResponse struct {
 	// The fee is subtracted from the refund amount (refunds of the native coin)
 	FeeFromAmount bool `protobuf:"varint,2,opt,name=fee_from_amount,json=feeFromAmount,proto3" json:"fee_from_amount,omitempty"`
 	// The destination is the sender of the deposit: the refund does not require TOTP
-	ToSender      bool `protobuf:"varint,3,opt,name=to_sender,json=toSender,proto3" json:"to_sender,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ToSender bool `protobuf:"varint,3,opt,name=to_sender,json=toSender,proto3" json:"to_sender,omitempty"`
+	// Native coin balance of the hot wallet that pays the fee (refunds of tokens only)
+	FeeBalance *string `protobuf:"bytes,4,opt,name=fee_balance,json=feeBalance,proto3,oneof" json:"fee_balance,omitempty"`
+	// Native coin to add to the hot wallet to pay the fee, "0" when the fee is covered (tokens only)
+	FeeShortage *string `protobuf:"bytes,5,opt,name=fee_shortage,json=feeShortage,proto3,oneof" json:"fee_shortage,omitempty"`
+	// TRON: the hot wallet is not activated, it must receive TRX before the refund
+	ActivationRequired bool `protobuf:"varint,6,opt,name=activation_required,json=activationRequired,proto3" json:"activation_required,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *CheckRefundResponse) Reset() {
@@ -1260,6 +1266,27 @@ func (x *CheckRefundResponse) GetFeeFromAmount() bool {
 func (x *CheckRefundResponse) GetToSender() bool {
 	if x != nil {
 		return x.ToSender
+	}
+	return false
+}
+
+func (x *CheckRefundResponse) GetFeeBalance() string {
+	if x != nil && x.FeeBalance != nil {
+		return *x.FeeBalance
+	}
+	return ""
+}
+
+func (x *CheckRefundResponse) GetFeeShortage() string {
+	if x != nil && x.FeeShortage != nil {
+		return *x.FeeShortage
+	}
+	return ""
+}
+
+func (x *CheckRefundResponse) GetActivationRequired() bool {
+	if x != nil {
+		return x.ActivationRequired
 	}
 	return false
 }
@@ -1471,12 +1498,18 @@ const file_processing_transfer_v1_transfer_proto_rawDesc = "" +
 	"to_address\x18\x04 \x01(\tR\ttoAddress\x12)\n" +
 	"\x10asset_identifier\x18\x05 \x01(\tR\x0fassetIdentifier\x12\x16\n" +
 	"\x06amount\x18\x06 \x01(\tR\x06amount\x12$\n" +
-	"\x0esource_tx_hash\x18\a \x01(\tR\fsourceTxHash\"\x96\x01\n" +
+	"\x0esource_tx_hash\x18\a \x01(\tR\fsourceTxHash\"\xb6\x02\n" +
 	"\x13CheckRefundResponse\x12(\n" +
 	"\restimated_fee\x18\x01 \x01(\tH\x00R\festimatedFee\x88\x01\x01\x12&\n" +
 	"\x0ffee_from_amount\x18\x02 \x01(\bR\rfeeFromAmount\x12\x1b\n" +
-	"\tto_sender\x18\x03 \x01(\bR\btoSenderB\x10\n" +
-	"\x0e_estimated_fee\"6\n" +
+	"\tto_sender\x18\x03 \x01(\bR\btoSender\x12$\n" +
+	"\vfee_balance\x18\x04 \x01(\tH\x01R\n" +
+	"feeBalance\x88\x01\x01\x12&\n" +
+	"\ffee_shortage\x18\x05 \x01(\tH\x02R\vfeeShortage\x88\x01\x01\x12/\n" +
+	"\x13activation_required\x18\x06 \x01(\bR\x12activationRequiredB\x10\n" +
+	"\x0e_estimated_feeB\x0e\n" +
+	"\f_fee_balanceB\x0f\n" +
+	"\r_fee_shortage\"6\n" +
 	"\x15GetByRequestIDRequest\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\"N\n" +

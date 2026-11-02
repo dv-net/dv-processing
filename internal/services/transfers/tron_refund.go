@@ -7,6 +7,7 @@ import (
 	"github.com/dv-net/dv-processing/pkg/walletsdk/tron"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 	"github.com/dv-net/dv-processing/rpccode"
+	"github.com/shopspring/decimal"
 )
 
 // processTronRefund checks that the hot wallet pays the refund by itself, without activation,
@@ -21,7 +22,7 @@ func (s *Service) processTronRefund(ctx context.Context, req *CreateTransferRequ
 		return fmt.Errorf("check wallet activation: %w", err)
 	}
 
-	if !activated {
+	if !activated && !req.dryRun {
 		return fmt.Errorf("%w: hot wallet %s is not activated", rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), fromAddress)
 	}
 
@@ -32,6 +33,13 @@ func (s *Service) processTronRefund(ctx context.Context, req *CreateTransferRequ
 
 	if balance.LessThan(req.Amount.Decimal) {
 		return fmt.Errorf("%w for refund. required: %s, available: %s", rpccode.GetErrorByCode(rpccode.RPCCodeNotEnoughBalance), req.Amount.Decimal, balance)
+	}
+
+	// the check of a refund reports the activation instead of the error.
+	// The fee of a not activated wallet is not estimated: it has no resources yet
+	if !activated {
+		req.refundActivationRequired = true
+		return nil
 	}
 
 	assetDecimals, err := s.eproxySvc.AssetDecimals(ctx, wconstants.BlockchainTypeTron, req.AssetIdentifier)
@@ -72,7 +80,11 @@ func (s *Service) processTronRefund(ctx context.Context, req *CreateTransferRequ
 		return fmt.Errorf("get hot wallet trx balance: %w", err)
 	}
 
-	if trxBalance.LessThan(fee) {
+	shortage := decimal.Max(fee.Sub(trxBalance), decimal.Zero)
+	req.refundFeeBalance, req.refundFeeShortage = &trxBalance, &shortage
+
+	// the check of a refund reports the shortage instead of the error
+	if shortage.IsPositive() && !req.dryRun {
 		return fmt.Errorf("%w: trx balance %s, fee %s TRX", rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), trxBalance, fee)
 	}
 

@@ -301,11 +301,13 @@ func (s *Service) GetIncidents(ctx context.Context, blockchain wconstants.Blockc
 	return incidents.Msg.GetItems(), nil
 }
 
-// GetRollbackStartingBlock returns the block height to start parsing from after a rollback.
-// It looks for a recent rollback incident (within rollbackIncidentMaxAge). If none is found,
-// it falls back to currentBlock - safeDepth, where safeDepth is blockchain-specific.
-func (s *Service) GetRollbackStartingBlock(ctx context.Context, blockchain wconstants.BlockchainType, currentBlock int64) (uint64, error) {
-	incidents, _ := s.GetIncidents(ctx, blockchain, 10)
+// FindRecentRollbackBlock returns the revert-to block height from the latest rollback
+// incident not older than rollbackIncidentMaxAge. found is false when there is no such incident.
+func (s *Service) FindRecentRollbackBlock(ctx context.Context, blockchain wconstants.BlockchainType) (block uint64, found bool, err error) {
+	incidents, err := s.GetIncidents(ctx, blockchain, 10)
+	if err != nil {
+		return 0, false, err
+	}
 
 	maxAge := constants.RollbackIncidentMaxAge()
 
@@ -318,12 +320,10 @@ func (s *Service) GetRollbackStartingBlock(ctx context.Context, blockchain wcons
 			break // incidents are ordered newest-first; all further are older
 		}
 
-		return incident.GetDataRollback().GetRevertToBlockHeight(), nil
+		return incident.GetDataRollback().GetRevertToBlockHeight(), true, nil
 	}
 
-	// No recent incident or API unavailable — fall back to safe depth per blockchain.
-	safeBlock := constants.RollbackFallbackBlock(blockchain, currentBlock)
-	return uint64(safeBlock), nil //nolint:gosec
+	return 0, false, nil
 }
 
 type FindTransactionsParams struct {

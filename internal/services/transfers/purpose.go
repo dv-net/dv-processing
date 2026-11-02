@@ -248,10 +248,18 @@ type CheckRefundResult struct {
 	EstimatedFee  *decimal.Decimal
 	FeeFromAmount bool
 	ToSender      bool
+	// FeeBalance is the native coin balance of the hot wallet paying the fee, set for tokens
+	FeeBalance *decimal.Decimal
+	// FeeShortage is the native coin to add to the hot wallet to pay the fee, set for tokens
+	FeeShortage *decimal.Decimal
+	// ActivationRequired - the tron hot wallet is not activated, the fee is not estimated
+	ActivationRequired bool
 }
 
 // CheckRefund runs all checks of a refund without creating it: the deposit, the destination
 // and that the hot wallet pays the network fee by itself. TOTP is not checked.
+// A token refund whose fee is not covered by the hot wallet is not an error: the result reports
+// the fee shortage or the required activation, the creation of such refund fails.
 func (s *Service) CheckRefund(ctx context.Context, req CreateTransferRequest) (*CheckRefundResult, error) {
 	req.Purpose = constants.TransferPurposeRefund
 	req.TOTP = ""
@@ -283,5 +291,9 @@ func (s *Service) CheckRefund(ctx context.Context, req CreateTransferRequest) (*
 		EstimatedFee:  req.refundEstimatedFee,
 		FeeFromAmount: req.feeFromAmount(),
 		ToSender:      req.refundToSender,
+
+		FeeBalance:         req.refundFeeBalance,
+		FeeShortage:        req.refundFeeShortage,
+		ActivationRequired: req.refundActivationRequired,
 	}, nil
 }

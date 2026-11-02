@@ -238,7 +238,11 @@ func (s *Service) checkEVMRefundFee(ctx context.Context, req *CreateTransferRequ
 		return fmt.Errorf("get hot wallet %s balance: %w", req.Blockchain.GetAssetIdentifier(), err)
 	}
 
-	if baseAssetBalance.LessThan(fee) {
+	shortage := decimal.Max(fee.Sub(baseAssetBalance), decimal.Zero)
+	req.refundFeeBalance, req.refundFeeShortage = &baseAssetBalance, &shortage
+
+	// the check of a refund reports the shortage instead of the error
+	if shortage.IsPositive() && !req.dryRun {
 		return fmt.Errorf(
 			"%w: %s balance %s, fee %s",
 			rpccode.GetErrorByCode(rpccode.RPCCodeRefundInsufficientFee), req.Blockchain.GetAssetIdentifier(), baseAssetBalance, fee,

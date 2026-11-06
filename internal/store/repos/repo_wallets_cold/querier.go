@@ -15,6 +15,7 @@ import (
 type Querier interface {
 	Create(ctx context.Context, arg CreateParams) (*models.ColdWallet, error)
 	Get(ctx context.Context, arg GetParams) (*models.ColdWallet, error)
+	GetAddressesByBlockchain(ctx context.Context, arg GetAddressesByBlockchainParams) ([]string, error)
 	GetAllByOwnerID(ctx context.Context, ownerID uuid.UUID) ([]*models.ColdWallet, error)
 	GetByBlockchainAndAddress(ctx context.Context, blockchain wconstants.BlockchainType, address string) (*models.ColdWallet, error)
 	MaxSequence(ctx context.Context, blockchain wconstants.BlockchainType, ownerID uuid.UUID) (int32, error)

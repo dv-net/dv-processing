@@ -13,6 +13,9 @@ select * from processing_wallets where owner_id = $1 and blockchain = $2 limit 1
 -- name: GetByBlockchainAndAddress :one
 select * from processing_wallets where blockchain = $1 and address = $2;
 
+-- name: GetAddressesByBlockchain :many
+select address from processing_wallets where blockchain = $1 and address > $2 order by address asc limit $3;
+
 -- name: GetAllNotCreatedWallets :many
 WITH all_combinations AS (
   SELECT

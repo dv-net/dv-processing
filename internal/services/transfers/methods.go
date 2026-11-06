@@ -54,7 +54,7 @@ func (s *Service) GetSystemTransactionsByTransfer(ctx context.Context, transferI
 }
 
 // GetByTxHashAndOwnerID returns the transfer by the txHash and ownerID.
-func (s *Service) GetByTxHashAndOwnerID(ctx context.Context, txHash string, ownerID uuid.UUID) (*models.Transfer, error) {
+func (s *Service) GetByTxHashAndOwnerID(ctx context.Context, txHash string, ownerID uuid.UUID, opts ...repos.Option) (*models.Transfer, error) {
 	if txHash == "" {
 		return nil, storecmn.ErrEmptyHash
 	}
@@ -63,7 +63,7 @@ func (s *Service) GetByTxHashAndOwnerID(ctx context.Context, txHash string, owne
 		return nil, storecmn.ErrEmptyID
 	}
 
-	data, err := s.store.Transfers().GetByTxHashAndOwnerID(ctx, pgtypeutils.EncodeText(&txHash), ownerID)
+	data, err := s.store.Transfers(opts...).GetByTxHashAndOwnerID(ctx, pgtypeutils.EncodeText(&txHash), ownerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, storecmn.ErrNotFound

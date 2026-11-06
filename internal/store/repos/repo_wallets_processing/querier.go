@@ -15,6 +15,7 @@ import (
 type Querier interface {
 	Create(ctx context.Context, arg CreateParams) (*models.ProcessingWallet, error)
 	Get(ctx context.Context, blockchain wconstants.BlockchainType, address string) (*models.ProcessingWallet, error)
+	GetAddressesByBlockchain(ctx context.Context, blockchain wconstants.BlockchainType, address string, limit int32) ([]string, error)
 	GetAllByOwnerID(ctx context.Context, ownerID uuid.UUID) ([]*models.ProcessingWallet, error)
 	GetAllNotCreatedWallets(ctx context.Context, blockchains []string) ([]*GetAllNotCreatedWalletsRow, error)
 	GetByBlockchain(ctx context.Context, ownerID uuid.UUID, blockchain wconstants.BlockchainType) (*models.ProcessingWallet, error)

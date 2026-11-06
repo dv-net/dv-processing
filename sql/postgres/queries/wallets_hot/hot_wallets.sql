@@ -24,3 +24,6 @@ select * from hot_wallets where is_active = true;
 
 -- name: FindEVMByExternalID :many
 select * from hot_wallets where external_wallet_id = $1 and blockchain in (select unnest($2::text[])) and owner_id = $3 and is_active = true and is_dirty = false order by sequence desc limit 1;
+
+-- name: GetAddressesByBlockchain :many
+select address from hot_wallets where blockchain = $1 and address > $2 order by address asc limit $3;

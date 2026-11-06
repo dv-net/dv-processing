@@ -59,12 +59,12 @@ func startCMD(l logger.ExtendedLogger) *cli.Command {
 			&cli.StringFlag{
 				Name:  "addr",
 				Usage: "address to listen",
-				Value: ":8085",
+				Value: ":8080",
 			},
 			&cli.StringFlag{
 				Name:  "endpoint",
 				Usage: "endpoint to handle requests",
-				Value: "/webhook",
+				Value: "/",
 			},
 			&cli.StringFlag{
 				Name:    "secret",

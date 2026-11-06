@@ -327,8 +327,26 @@ func (s *Service) FindRecentRollbackBlock(ctx context.Context, blockchain wconst
 }
 
 type FindTransactionsParams struct {
-	BlockHeight *uint64
-	Hash        *string
+	BlockHeight     *uint64
+	BlockHeightTo   *uint64
+	FilterByAddress *bool
+	Hash            *string
+	Address         *string
+
+	// PageRetryDelays retries a page that failed with a transient error
+	// (deadline exceeded, unavailable, resource exhausted): one retry per delay.
+	// Empty means no retries.
+	PageRetryDelays []time.Duration
+}
+
+// IsTransientError reports eproxy errors worth retrying: the request may succeed
+// when eproxy or the explorer behind it is less loaded.
+func IsTransientError(err error) bool {
+	switch connect.CodeOf(err) {
+	case connect.CodeDeadlineExceeded, connect.CodeUnavailable, connect.CodeResourceExhausted:
+		return true
+	}
+	return false
 }
 
 // FindTransactions returns transactions by request on the blockchain
@@ -338,12 +356,34 @@ func (s *Service) FindTransactions(ctx context.Context, blockchain wconstants.Bl
 		pageSize = uint32(1000)
 	)
 
+	// eproxy caps page size at 50 for address queries (tron, evm explorers);
+	// block queries are served with a larger page.
+	if request.Address != nil {
+		pageSize = 50
+	}
+
 	data := make([]*trxv2.Transaction, 0)
 
+	var blockHeightOffset *uint64
+	if request.BlockHeightTo != nil {
+		if request.BlockHeight == nil || *request.BlockHeightTo < *request.BlockHeight {
+			return nil, fmt.Errorf("invalid block height range: from=%v to=%v", request.BlockHeight, *request.BlockHeightTo)
+		}
+		blockHeightOffset = utils.Pointer(*request.BlockHeightTo - *request.BlockHeight)
+	}
+
 	req := &trxv2.FindRequest{
-		BlockHeight: request.BlockHeight,
-		Hash:        request.Hash,
-		Blockchain:  ConvertBlockchain(blockchain),
+		BlockHeight:       request.BlockHeight,
+		Hash:              request.Hash,
+		Address:           request.Address,
+		Blockchain:        ConvertBlockchain(blockchain),
+		BlockHeightOffset: blockHeightOffset,
+	}
+
+	if request.FilterByAddress != nil {
+		req.BitcoinLikeParams = &trxv2.FindRequest_BitcoinLikeParams{
+			FilterByAddress: request.FilterByAddress,
+		}
 	}
 
 	for {
@@ -353,9 +393,22 @@ func (s *Service) FindTransactions(ctx context.Context, blockchain wconstants.Bl
 
 		req.Common = &commonv2.FindRequestCommon{Page: &page, PageSize: &pageSize}
 
-		reqCtx, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
-		response, err := s.eproxyClient.TransactionsClient.Find(reqCtx, connect.NewRequest(req))
-		cancel()
+		var response *connect.Response[trxv2.FindResponse]
+		var err error
+		for attempt := 0; ; attempt++ {
+			reqCtx, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
+			response, err = s.eproxyClient.TransactionsClient.Find(reqCtx, connect.NewRequest(req))
+			cancel()
+
+			if err == nil || ctx.Err() != nil || attempt >= len(request.PageRetryDelays) || !IsTransientError(err) {
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+			case <-time.After(request.PageRetryDelays[attempt]):
+			}
+		}
 
 		if err != nil {
 			return nil, fmt.Errorf("error fetching page %d: %w", page, err)

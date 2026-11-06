@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/dv-net/dv-processing/internal/models"
+	"github.com/dv-net/dv-processing/internal/store/repos"
 	"github.com/dv-net/dv-processing/internal/store/storecmn"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -16,7 +17,7 @@ func (s *Service) GetAll(ctx context.Context) ([]*models.Owner, error) {
 }
 
 // GetByID returns the owner by the ID.
-func (s *Service) GetByID(ctx context.Context, ownerID uuid.UUID) (*models.Owner, error) {
+func (s *Service) GetByID(ctx context.Context, ownerID uuid.UUID, opts ...repos.Option) (*models.Owner, error) {
 	if ownerID == uuid.Nil {
 		return nil, storecmn.ErrEmptyID
 	}
@@ -26,7 +27,7 @@ func (s *Service) GetByID(ctx context.Context, ownerID uuid.UUID) (*models.Owner
 		return item.Value(), nil
 	}
 
-	data, err := s.store.Owners().GetByID(ctx, ownerID)
+	data, err := s.store.Owners(opts...).GetByID(ctx, ownerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, storecmn.ErrNotFound

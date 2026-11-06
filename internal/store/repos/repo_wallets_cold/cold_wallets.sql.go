@@ -39,6 +39,36 @@ func (q *Queries) Get(ctx context.Context, arg GetParams) (*models.ColdWallet, e
 	return &i, err
 }
 
+const getAddressesByBlockchain = `-- name: GetAddressesByBlockchain :many
+select address from cold_wallets where blockchain = $1 and address > $2 order by address asc limit $3
+`
+
+type GetAddressesByBlockchainParams struct {
+	Blockchain wconstants.BlockchainType `db:"blockchain" json:"blockchain" validate:"required"`
+	Address    string                    `db:"address" json:"address" validate:"required"`
+	Limit      int32                     `db:"limit" json:"limit"`
+}
+
+func (q *Queries) GetAddressesByBlockchain(ctx context.Context, arg GetAddressesByBlockchainParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, getAddressesByBlockchain, arg.Blockchain, arg.Address, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var address string
+		if err := rows.Scan(&address); err != nil {
+			return nil, err
+		}
+		items = append(items, address)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllByOwnerID = `-- name: GetAllByOwnerID :many
 select id, blockchain, address, owner_id, is_active, is_dirty, created_at, updated_at from cold_wallets where owner_id = $1
 `

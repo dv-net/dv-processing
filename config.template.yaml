@@ -32,8 +32,8 @@ postgres:
   password: ""
   db_name: ""
   ping_interval: 10
-  min_conns: 3
-  max_conns: 6
+  min_conns: 5
+  max_conns: 30
 grpc:
   enabled: true
   addr: :9000
@@ -46,6 +46,7 @@ blockchain:
     blocks_in_chunk: 20
   tron:
     enabled: true
+    backfill_threshold_blocks: 0
     node:
       grpc_address: node-tron-grpc.dv.net:443
       use_tls: true
@@ -54,6 +55,7 @@ blockchain:
   ethereum:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 0
     node:
       address: https://node-eth.dv.net
     attributes:
@@ -61,6 +63,7 @@ blockchain:
   bsc:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 0
     node:
       address: https://node-bsc.dv.net
     attributes:
@@ -68,6 +71,7 @@ blockchain:
   polygon:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 0
     node:
       address: https://node-polygon.dv.net
     attributes:
@@ -75,6 +79,7 @@ blockchain:
   arbitrum:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 0
     node:
       address: https://node-arbitrum.dv.net
     attributes:
@@ -82,6 +87,7 @@ blockchain:
   optimism:
     enabled: false
     network: mainnet
+    backfill_threshold_blocks: 0
     node:
       address: ""
     attributes:
@@ -89,6 +95,7 @@ blockchain:
   linea:
     enabled: false
     network: mainnet
+    backfill_threshold_blocks: 0
     node:
       address: ""
     attributes:
@@ -96,6 +103,7 @@ blockchain:
   bitcoin:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 300
     attributes:
       fee_per_byte: 7
       min_utxo_amount: 0
@@ -107,6 +115,7 @@ blockchain:
   litecoin:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 0
     attributes:
       fee_per_byte: 10
       min_utxo_amount: 0
@@ -118,6 +127,7 @@ blockchain:
   bitcoin_cash:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 0
     attributes:
       fee_per_byte: 1
       min_utxo_amount: 0
@@ -129,6 +139,7 @@ blockchain:
   dogecoin:
     enabled: true
     network: mainnet
+    backfill_threshold_blocks: 0
     attributes:
       fee_per_byte: 50000
       min_utxo_amount: 0

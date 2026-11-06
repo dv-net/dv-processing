@@ -31,7 +31,7 @@ func (w *Workflow) SetStages(stages []*Stage) *Workflow {
 }
 
 // SetLogger sets the logger for the workflow.
-func (w *Workflow) SetLogger(l logger) *Workflow {
+func (w *Workflow) SetLogger(l Logger) *Workflow {
 	w.logger = l
 	return w
 }
@@ -79,7 +79,7 @@ func (w *Workflow) SetSkipError(skip bool) *Workflow {
 */
 
 // Logger returns the logger for the workflow.
-func (w *Workflow) Logger() logger { return w.logger }
+func (w *Workflow) Logger() Logger { return w.logger }
 
 // Step states
 func (w *Workflow) StepStates() []*StepState {

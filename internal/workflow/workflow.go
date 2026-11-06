@@ -31,7 +31,7 @@ type Workflow struct {
 	// Debug allows to enable debug mode.
 	Debug bool
 
-	logger logger
+	logger Logger
 
 	isStopped atomic.Bool
 	prevStep  *Step

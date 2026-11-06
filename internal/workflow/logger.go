@@ -1,6 +1,7 @@
 package workflow
 
-type logger interface {
+// Logger is the logging interface used by Workflow.
+type Logger interface {
 	Debugw(format string, args ...any)
 	Debugf(format string, args ...any)
 	Infow(format string, args ...any)

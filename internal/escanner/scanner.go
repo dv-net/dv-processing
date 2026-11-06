@@ -4,46 +4,32 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/dv-net/mx/logger"
-	"github.com/jackc/pgx/v5"
-	"github.com/riverqueue/river"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/dv-net/dv-processing/internal/config"
 	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/eproxy"
-	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/internal/services/baseservices"
-	"github.com/dv-net/dv-processing/internal/services/wallets"
-	"github.com/dv-net/dv-processing/internal/services/webhooks"
 	"github.com/dv-net/dv-processing/internal/store"
 	"github.com/dv-net/dv-processing/internal/store/repos"
-	"github.com/dv-net/dv-processing/internal/store/repos/repo_transfer_transactions"
+	"github.com/dv-net/dv-processing/internal/store/repos/repo_wallets_cold"
 	"github.com/dv-net/dv-processing/internal/store/storecmn"
 	"github.com/dv-net/dv-processing/internal/taskmanager"
 	"github.com/dv-net/dv-processing/pkg/utils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk"
-	"github.com/dv-net/dv-processing/pkg/walletsdk/bch"
-	"github.com/dv-net/dv-processing/pkg/walletsdk/tron"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 	blocksv2 "github.com/dv-net/dv-proto/gen/go/eproxy/blocks/v2"
-	transactionsv2 "github.com/dv-net/dv-proto/gen/go/eproxy/transactions/v2"
+	"github.com/dv-net/mx/logger"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
 type scanner struct {
-	logger     logger.Logger
-	conf       config.Blockchain
-	blockchain wconstants.BlockchainType
-	store      store.IStore
-	bs         baseservices.IBaseServices
-	tm         *taskmanager.TaskManager
-	sdk        *walletsdk.SDK
+	*eventPipeline
 
 	lastNodeBlockHeight   atomic.Int64
 	lastParsedBlockHeight atomic.Int64
@@ -58,18 +44,23 @@ func newScanner(
 	sdk *walletsdk.SDK,
 	blockchain wconstants.BlockchainType,
 ) *scanner {
-	return &scanner{
-		logger: logger.With(l,
+	s := &scanner{}
+
+	s.eventPipeline = newEventPipeline(
+		logger.With(l,
 			"module", "scanner",
 			"blockchain", blockchain.String(),
 		),
-		conf:       c,
-		store:      st,
-		bs:         bs,
-		tm:         tm,
-		sdk:        sdk,
-		blockchain: blockchain,
-	}
+		c,
+		blockchain,
+		st,
+		bs,
+		sdk,
+		&s.lastParsedBlockHeight,
+	)
+	s.SetRiverClient(tm.Client())
+
+	return s
 }
 
 // start
@@ -84,6 +75,12 @@ func (s *scanner) start(ctx context.Context) error {
 		s.lastParsedBlockHeight.Store(-1)
 	} else {
 		s.lastParsedBlockHeight.Store(lastDBBlockNumber)
+	}
+
+	// close out backfill incidents left over from previous runs; a failure here
+	// must not prevent the scanner from starting
+	if err := s.reconcileIncidents(ctx); err != nil {
+		s.logger.Errorf("reconcile incidents: %s", err)
 	}
 
 	// start loop for getting new last block from the proxy explorer
@@ -160,6 +157,17 @@ func (s *scanner) handleBlocks(ctx context.Context) error {
 	}
 
 	lag := lnBlock - lpBlock
+
+	if threshold := s.conf.BackfillThreshold(s.blockchain); threshold > 0 && lag > threshold {
+		if h := constants.RollbackFallbackBlock(s.blockchain, lnBlock); h > lpBlock {
+			s.logger.Warnf("lag %d exceeds backfill threshold %d: jumping to block %d", lag, threshold, h)
+			if err := s.jump(ctx, lpBlock, h); err != nil {
+				return fmt.Errorf("jump over %d blocks: %w", lag, err)
+			}
+			return nil // re-enter handleBlocks with the new cursor
+		}
+	}
+
 	var catchUpStart time.Time
 	var catchUpBlocksDone int64
 	if lag > blocksInChunk {
@@ -269,36 +277,6 @@ func (s *scanner) validateChain(results []blockFetchResult, lastKnownHash string
 	return nil
 }
 
-type createWebhookParams struct {
-	tx          *transactionsv2.Transaction
-	event       *transactionsv2.Event
-	whKind      models.WebhookKind
-	checkResult wallets.CheckWalletResult
-}
-
-func (cwp *createWebhookParams) IsTrxContractActivationDeposit(activationContractAddr string) bool {
-	return cwp.checkResult.WalletType == constants.WalletTypeHot &&
-		cwp.whKind == models.WebhookKindDeposit && // deposit
-		cwp.event != nil &&
-		cwp.event.GetAssetIdentifier() != "" &&
-		strings.EqualFold(cwp.event.GetAssetIdentifier(), tron.TrxAssetIdentifier) &&
-		cwp.event.AddressFrom != nil &&
-		*cwp.event.AddressFrom != "" &&
-		strings.EqualFold(*cwp.event.AddressFrom, activationContractAddr) &&
-		cwp.event.AddressTo != nil &&
-		*cwp.event.AddressTo != ""
-}
-
-func (cwp *createWebhookParams) IsTrxHotWalletDeposit() bool {
-	return cwp.checkResult.WalletType == constants.WalletTypeHot &&
-		cwp.whKind == models.WebhookKindDeposit && // deposit
-		cwp.event != nil &&
-		cwp.event.GetAssetIdentifier() != "" &&
-		strings.EqualFold(cwp.event.GetAssetIdentifier(), tron.TrxAssetIdentifier) && // trx asset
-		cwp.event.AddressTo != nil &&
-		*cwp.event.AddressTo != ""
-}
-
 // fetchBlockData fetches all data for a single block via RPC (no DB operations).
 func (s *scanner) fetchBlockData(ctx context.Context, blockHeight int64) (blockFetchResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
@@ -327,264 +305,17 @@ func (s *scanner) fetchBlockData(ctx context.Context, blockHeight int64) (blockF
 	blockHash := block.Msg.GetItem().GetHash()
 	prevHash := block.Msg.GetItem().GetPrevHash()
 
-	createWhParams := utils.NewSlice[createWebhookParams]()
-
-	eg, gCtx := errgroup.WithContext(ctx)
-	eg.SetLimit(100)
-
-	for _, tx := range txs {
-		eg.Go(func() error {
-			for _, event := range tx.Events {
-				fn := func() error {
-					if event.Type == nil || *event.Type != transactionsv2.EventType_EVENT_TYPE_TRANSFER {
-						return nil
-					}
-
-					if event.Status != nil && *event.Status != transactionsv2.EventStatus_EVENT_STATUS_SUCCESS {
-						return nil
-					}
-					// skip zero transfer if transaction initiator is another address. approve if we send commission
-					if event.GetValue() == "0" && event.GetAddressFrom() != "" && event.GetAddressFrom() != tx.GetAddressFrom() {
-						return nil
-					}
-
-					for _, check := range s.checksForEvent(event) {
-						// check if the address belongs to us
-						result, err := s.bs.Wallets().CheckWallet(gCtx, s.blockchain, check.address)
-						if err != nil {
-							// skip if the address does not belong to us
-							if errors.Is(err, wallets.ErrAddressNotFound) {
-								continue
-							}
-							return fmt.Errorf("check wallet: %w", err)
-						}
-
-						createWhParams.Add(createWebhookParams{
-							tx:          tx,
-							event:       event,
-							whKind:      check.kind,
-							checkResult: *result,
-						})
-					}
-
-					return nil
-				}
-
-				if err := fn(); err != nil {
-					return fmt.Errorf("check event: %w", err)
-				}
-			}
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		return blockFetchResult{}, fmt.Errorf("wait for all transactions: %w", err)
+	whParams, err := s.processTxEvents(ctx, txs)
+	if err != nil {
+		return blockFetchResult{}, err
 	}
 
 	return blockFetchResult{
 		height:    blockHeight,
 		blockHash: blockHash,
 		prevHash:  prevHash,
-		whParams:  createWhParams.GetAll(),
+		whParams:  whParams,
 	}, nil
-}
-
-// commitBlockResult writes a fetched block result to the database (must be called sequentially).
-func (s *scanner) commitBlockResult(ctx context.Context, r blockFetchResult, existsLastBlockDB bool) error {
-	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
-	defer cancel()
-
-	now := time.Now()
-
-	if err := pgx.BeginTxFunc(ctx, s.store.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
-		if len(r.whParams) != 0 {
-			batchParams := make([]webhooks.BatchCreateParams, 0, len(r.whParams))
-			for _, params := range r.whParams {
-				transactionData := webhooks.TransactionData{
-					Hash:          params.tx.Hash,
-					Confirmations: params.tx.Confirmations,
-					Fee:           &params.tx.Fee,
-				}
-
-				if params.tx.Status != "" {
-					transactionData.Status = &params.tx.Status
-				}
-
-				if params.tx.CreatedAt != nil {
-					transactionData.CreatedAt = params.tx.CreatedAt.AsTime()
-				}
-
-				event := params.event
-				transactionEventData := webhooks.TransactionEventData{
-					AddressFrom:       event.AddressFrom,
-					AddressTo:         event.AddressTo,
-					Value:             event.Value,
-					AssetIdentify:     event.AssetIdentifier,
-					BlockchainUniqKey: event.BlockchainUniqKey,
-				}
-
-				whCreateParamsData := webhooks.EventTransactionCreateParamsData{
-					Blockchain:       s.blockchain,
-					Tx:               transactionData,
-					Event:            transactionEventData,
-					WebhookKind:      params.whKind,
-					WalletType:       params.checkResult.WalletType,
-					WebhookStatus:    models.WebhookEventStatusWaitingConfirmations,
-					OwnerID:          params.checkResult.OwnerID,
-					ExternalWalletID: params.checkResult.ExternalWalletID,
-				}
-
-				// post create webhook handler
-				if err := s.beforeCreateWhHandler(ctx, dbTx, params, &whCreateParamsData); err != nil {
-					return fmt.Errorf("post create webhook handler: %w", err)
-				}
-
-				param, err := s.bs.Webhooks().EventTransactionCreateParams(ctx, whCreateParamsData)
-				if err != nil {
-					return fmt.Errorf("get params for webhook: %w", err)
-				}
-
-				batchParams = append(batchParams, param)
-
-				var address string
-				if params.whKind == models.WebhookKindTransfer && params.event.AddressFrom != nil {
-					address = *params.event.AddressFrom
-				} else if params.whKind == models.WebhookKindDeposit && params.event.AddressTo != nil {
-					address = *params.event.AddressTo
-				}
-
-				var blockchainUniqKey string
-				if params.event.BlockchainUniqKey != nil {
-					blockchainUniqKey = *params.event.BlockchainUniqKey
-				}
-
-				_, err = s.tm.Client().InsertTx(ctx, dbTx,
-					taskmanager.WebhookWaitingConfirmationsArgs{
-						Blockchain:             s.blockchain,
-						Hash:                   params.tx.Hash,
-						Address:                address,
-						EventBlockchainUniqKey: blockchainUniqKey,
-						WebhookKind:            params.whKind,
-						WalletType:             params.checkResult.WalletType,
-						OwnerID:                params.checkResult.OwnerID,
-						ExternalWalletID:       params.checkResult.ExternalWalletID,
-						IsSystem:               whCreateParamsData.IsSystem,
-					},
-					&river.InsertOpts{
-						UniqueOpts: river.UniqueOpts{
-							ByArgs: true,
-						},
-						ScheduledAt: time.Now().Add(constants.ConfirmationsTimeout(s.blockchain, params.tx.Confirmations)),
-					},
-				)
-				if err != nil {
-					return fmt.Errorf("insert webhook job: %w", err)
-				}
-			}
-
-			if err := s.bs.Webhooks().BatchCreate(ctx, batchParams, repos.WithTx(dbTx)); err != nil {
-				return err
-			}
-		}
-
-		s.logger.Debugf("processed block %d in %s", r.height, time.Since(now))
-
-		if existsLastBlockDB {
-			if err := s.bs.ProcessedBlocks().UpdateNumberWithHash(ctx, s.blockchain, r.height, r.blockHash, repos.WithTx(dbTx)); err != nil {
-				return fmt.Errorf("update block number: %w", err)
-			}
-
-			s.logger.Debugf("updated last block from explorer %s is %d", s.blockchain.String(), r.height)
-		} else {
-			if err := s.bs.ProcessedBlocks().Create(ctx, s.blockchain, r.height, r.blockHash, repos.WithTx(dbTx)); err != nil {
-				return fmt.Errorf("create block number: %w", err)
-			}
-		}
-
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	s.lastParsedBlockHeight.Store(r.height)
-
-	return nil
-}
-
-// beforeCreateWhHandler - before create webhook handler
-func (s *scanner) beforeCreateWhHandler(
-	ctx context.Context,
-	dbTx pgx.Tx,
-	params createWebhookParams,
-	whCreateParamsData *webhooks.EventTransactionCreateParamsData,
-) error {
-	if !s.blockchain.IsSystemTransactionsSupported() {
-		return nil
-	}
-
-	// Fetch system transactions with existing transfers by tx_hash
-	systemTxs, err := s.store.TransferTransactions(repos.WithTx(dbTx)).FindSystemTransactions(ctx, repo_transfer_transactions.FindSystemTransactionsParams{
-		OwnerID:       whCreateParamsData.OwnerID,
-		Blockchain:    s.blockchain,
-		TxHash:        params.tx.Hash,
-		SystemTxTypes: models.TransferTransactionSystemTypes(),
-	})
-	if err != nil {
-		return fmt.Errorf("find system transactions: %w", err)
-	}
-
-	// transaction occurred as system
-	if len(systemTxs) > 0 {
-		whCreateParamsData.IsSystem = true
-	}
-
-	if s.blockchain == wconstants.BlockchainTypeTron && !params.checkResult.Activated() {
-		// Check if wallet activation is required
-		if params.IsTrxContractActivationDeposit(s.conf.Tron.ActivationContractAddress) || params.IsTrxHotWalletDeposit() {
-			return s.bs.Wallets().Hot().ActivateWallet(ctx,
-				params.checkResult.OwnerID,
-				s.blockchain,
-				*params.event.AddressTo,
-				repos.WithTx(dbTx),
-			)
-		}
-	}
-
-	return nil
-}
-
-type eventCheck struct {
-	address string
-	kind    models.WebhookKind
-}
-
-func (s *scanner) checksForEvent(event *transactionsv2.Event) []eventCheck {
-	checks := []eventCheck{}
-
-	if event.AddressFrom != nil && *event.AddressFrom != "" {
-		checks = append(checks, eventCheck{address: *event.AddressFrom, kind: models.WebhookKindTransfer})
-	}
-
-	if event.AddressTo != nil && *event.AddressTo != "" {
-		checks = append(checks, eventCheck{address: *event.AddressTo, kind: models.WebhookKindDeposit})
-	}
-
-	if s.blockchain == wconstants.BlockchainTypeBitcoinCash {
-		for _, check := range checks {
-			addr, err := bch.DecodeAddressToCashAddr(check.address, s.sdk.BCH.ChainParams())
-			if err == nil && addr != check.address {
-				checks = append(checks, eventCheck{address: addr, kind: check.kind})
-			}
-
-			addr, err = bch.DecodeAddressToLegacyAddr(check.address, s.sdk.BCH.ChainParams())
-			if err == nil && addr != check.address {
-				checks = append(checks, eventCheck{address: addr, kind: check.kind})
-			}
-		}
-	}
-
-	return checks
 }
 
 // rollbackStartingBlock returns the block to restart parsing from after a rollback.
@@ -642,4 +373,140 @@ func (s *scanner) handleRollback(ctx context.Context) error {
 		s.logger.Infof("Successfully handled rollback, stored block %d with hash %s, will restart parsing from block %d", rollbackBlockHeight, rollbackBlockHash, newStartingBlock)
 		return nil
 	})
+}
+
+// IncidentTypeAddressBackfill marks processed_incidents rows created by a scanner jump.
+const IncidentTypeAddressBackfill = "address_backfill"
+
+// jump moves the cursor to the finalized block h and enqueues an address backfill
+// covering the skipped range (fromBlock, h]. The cursor update, the incident and the
+// backfill jobs are committed in a single transaction, so a jump can never be lost.
+func (s *scanner) jump(ctx context.Context, fromBlock, h int64) error {
+	if h <= fromBlock {
+		s.logger.Warnf("jump target %d is not ahead of the cursor %d, skipping", h, fromBlock)
+		return nil
+	}
+
+	block, err := s.bs.EProxy().BlocksClient().Get(ctx, connect.NewRequest(&blocksv2.GetRequest{
+		Blockchain: eproxy.ConvertBlockchain(s.blockchain),
+		Height:     uint64(h), //nolint:gosec
+	}))
+	if err != nil {
+		return fmt.Errorf("get block %d hash: %w", h, err)
+	}
+	hash := block.Msg.GetItem().GetHash()
+
+	addresses, err := s.listWatchedAddresses(ctx)
+	if err != nil {
+		return fmt.Errorf("list watched addresses: %w", err)
+	}
+
+	incidentID := uuid.NewString()
+
+	err = pgx.BeginTxFunc(ctx, s.store.PSQLConn(), pgx.TxOptions{}, func(dbTx pgx.Tx) error {
+		if err := s.bs.ProcessedBlocks().UpdateNumberWithHash(ctx, s.blockchain, h, hash, repos.WithTx(dbTx)); err != nil {
+			return fmt.Errorf("update processed block: %w", err)
+		}
+
+		if err := s.bs.ProcessedIncidents().MarkAsProcessing(ctx, s.blockchain, incidentID, IncidentTypeAddressBackfill, fromBlock+1, h, repos.WithTx(dbTx)); err != nil {
+			return fmt.Errorf("mark incident as processing: %w", err)
+		}
+
+		const chunkSize = 500
+		for start := 0; start < len(addresses); start += chunkSize {
+			end := min(start+chunkSize, len(addresses))
+
+			params := make([]river.InsertManyParams, 0, end-start)
+			for _, address := range addresses[start:end] {
+				params = append(params, river.InsertManyParams{
+					Args: AddressBackfillArgs{
+						IncidentID: incidentID,
+						Blockchain: s.blockchain,
+						Address:    address,
+						FromBlock:  fromBlock + 1,
+						ToBlock:    h,
+					},
+					InsertOpts: &river.InsertOpts{
+						UniqueOpts: river.UniqueOpts{
+							ByArgs: true,
+						},
+					},
+				})
+			}
+
+			if _, err := s.client.InsertManyTx(ctx, dbTx, params); err != nil {
+				return fmt.Errorf("insert backfill jobs: %w", err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	s.lastParsedBlockHeight.Store(h)
+
+	s.logger.Infof("jumped from block %d to %d (incident %s): %d backfill jobs enqueued", fromBlock, h, incidentID, len(addresses))
+
+	return nil
+}
+
+// listWatchedAddresses returns every address known to CheckWallet for the blockchain.
+// The listing is keyset-paginated: the wallets tables can hold tens of thousands
+// of addresses per blockchain.
+func (s *scanner) listWatchedAddresses(ctx context.Context) ([]string, error) {
+	const pageSize = 5000
+
+	seen := make(map[string]struct{})
+	out := make([]string, 0)
+
+	load := func(fetch func(ctx context.Context, after string, limit int32) ([]string, error)) error {
+		after := ""
+		for {
+			addresses, err := fetch(ctx, after, pageSize)
+			if err != nil {
+				return err
+			}
+
+			for _, address := range addresses {
+				if _, ok := seen[address]; ok {
+					continue
+				}
+
+				seen[address] = struct{}{}
+				out = append(out, address)
+			}
+
+			if len(addresses) < pageSize {
+				return nil
+			}
+
+			after = addresses[len(addresses)-1]
+		}
+	}
+
+	if err := load(func(ctx context.Context, after string, limit int32) ([]string, error) {
+		return s.store.Wallets().Hot().GetAddressesByBlockchain(ctx, s.blockchain, after, limit)
+	}); err != nil {
+		return nil, fmt.Errorf("hot wallets: %w", err)
+	}
+
+	if err := load(func(ctx context.Context, after string, limit int32) ([]string, error) {
+		return s.store.Wallets().Cold().GetAddressesByBlockchain(ctx, repo_wallets_cold.GetAddressesByBlockchainParams{
+			Blockchain: s.blockchain,
+			Address:    after,
+			Limit:      limit,
+		})
+	}); err != nil {
+		return nil, fmt.Errorf("cold wallets: %w", err)
+	}
+
+	if err := load(func(ctx context.Context, after string, limit int32) ([]string, error) {
+		return s.store.Wallets().Processing().GetAddressesByBlockchain(ctx, s.blockchain, after, limit)
+	}); err != nil {
+		return nil, fmt.Errorf("processing wallets: %w", err)
+	}
+
+	return out, nil
 }

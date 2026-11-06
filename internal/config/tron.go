@@ -14,7 +14,8 @@ type TronNode struct {
 }
 
 type TronBlockchain struct {
-	Enabled                   bool `json:"enabled" default:"false"`
+	Enabled                   bool  `json:"enabled" default:"false"`
+	BackfillThresholdBlocks   int64 `yaml:"backfill_threshold_blocks" json:"backfill_threshold_blocks" default:"0"`
 	Node                      TronNode
 	ActivationContractAddress string `json:"activation_contract_address" yaml:"activation_contract_address" default:"TQuCVz7ZXMwcuT2ERcBYCZzLeNAZofcTgY"`
 	UseBurnTRXActivation      bool   `json:"use_burn_trx_activation" yaml:"use_burn_trx_activation" default:"true"`

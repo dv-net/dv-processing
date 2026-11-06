@@ -27,7 +27,7 @@ func WithState(s WorkflowState) WorkflowOption {
 }
 
 // WithLogger sets the logger for the workflow.
-func WithLogger(l logger) WorkflowOption {
+func WithLogger(l Logger) WorkflowOption {
 	return func(w *Workflow) {
 		w.logger = l
 	}

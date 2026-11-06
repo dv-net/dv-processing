@@ -12,3 +12,6 @@ select * from cold_wallets where owner_id = $1;
 
 -- name: GetByBlockchainAndAddress :one
 select * from cold_wallets where blockchain = $1 and address = $2;
+
+-- name: GetAddressesByBlockchain :many
+select address from cold_wallets where blockchain = $1 and address > $2 order by address asc limit $3;

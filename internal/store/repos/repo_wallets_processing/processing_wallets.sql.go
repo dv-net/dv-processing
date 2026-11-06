@@ -34,6 +34,30 @@ func (q *Queries) Get(ctx context.Context, blockchain wconstants.BlockchainType,
 	return &i, err
 }
 
+const getAddressesByBlockchain = `-- name: GetAddressesByBlockchain :many
+select address from processing_wallets where blockchain = $1 and address > $2 order by address asc limit $3
+`
+
+func (q *Queries) GetAddressesByBlockchain(ctx context.Context, blockchain wconstants.BlockchainType, address string, limit int32) ([]string, error) {
+	rows, err := q.db.Query(ctx, getAddressesByBlockchain, blockchain, address, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var address string
+		if err := rows.Scan(&address); err != nil {
+			return nil, err
+		}
+		items = append(items, address)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllByOwnerID = `-- name: GetAllByOwnerID :many
 select id, blockchain, address, owner_id, sequence, is_active, is_dirty, created_at, updated_at from processing_wallets where owner_id = $1
 `

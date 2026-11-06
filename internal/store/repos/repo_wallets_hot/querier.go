@@ -18,6 +18,7 @@ type Querier interface {
 	Exist(ctx context.Context, address string, blockchain wconstants.BlockchainType, ownerID uuid.UUID) (bool, error)
 	FindEVMByExternalID(ctx context.Context, externalWalletID string, column2 []string, ownerID uuid.UUID) ([]*models.HotWallet, error)
 	Get(ctx context.Context, ownerID uuid.UUID, blockchain wconstants.BlockchainType, address string) (*models.HotWallet, error)
+	GetAddressesByBlockchain(ctx context.Context, blockchain wconstants.BlockchainType, address string, limit int32) ([]string, error)
 	GetAll(ctx context.Context) ([]*models.HotWallet, error)
 	GetAllByOwnerID(ctx context.Context, ownerID uuid.UUID) ([]*models.HotWallet, error)
 	GetByBlockchainAndAddress(ctx context.Context, blockchain wconstants.BlockchainType, address string) (*models.HotWallet, error)

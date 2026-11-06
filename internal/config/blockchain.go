@@ -29,6 +29,39 @@ type Blockchain struct {
 	Dogecoin    DogecoinBlockchain    `yaml:"dogecoin"`
 }
 
+// BackfillThreshold returns the scanner jump threshold for the blockchain,
+// 0 when the jump is disabled for it.
+func (b Blockchain) BackfillThreshold(blockchain wconstants.BlockchainType) int64 {
+	switch blockchain {
+	case wconstants.BlockchainTypeTron:
+		return b.Tron.BackfillThresholdBlocks
+
+	case wconstants.BlockchainTypeEthereum:
+		return b.Ethereum.BackfillThresholdBlocks
+	case wconstants.BlockchainTypeBinanceSmartChain:
+		return b.BinanceSmartChain.BackfillThresholdBlocks
+	case wconstants.BlockchainTypePolygon:
+		return b.Polygon.BackfillThresholdBlocks
+	case wconstants.BlockchainTypeArbitrum:
+		return b.Arbitrum.BackfillThresholdBlocks
+	case wconstants.BlockchainTypeOptimism:
+		return b.Optimism.BackfillThresholdBlocks
+	case wconstants.BlockchainTypeLinea:
+		return b.Linea.BackfillThresholdBlocks
+
+	case wconstants.BlockchainTypeBitcoin:
+		return b.Bitcoin.BackfillThresholdBlocks
+	case wconstants.BlockchainTypeLitecoin:
+		return b.Litecoin.BackfillThresholdBlocks
+	case wconstants.BlockchainTypeBitcoinCash:
+		return b.BitcoinCash.BackfillThresholdBlocks
+	case wconstants.BlockchainTypeDogecoin:
+		return b.Dogecoin.BackfillThresholdBlocks
+	}
+
+	return 0
+}
+
 // Available blockchains
 func (b Blockchain) Available() []wconstants.BlockchainType {
 	var available []wconstants.BlockchainType

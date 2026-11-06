@@ -17,12 +17,21 @@ type TaskManager struct {
 	riverClient *river.Client[pgx.Tx]
 }
 
+// WorkerWithRiverClient is a worker defined outside the taskmanager package
+// that still needs registration in the river client.
+type WorkerWithRiverClient interface {
+	Register(workers *river.Workers) error
+	Queues() map[string]river.QueueConfig
+	SetRiverClient(client *river.Client[pgx.Tx])
+}
+
 // New
 func New(
 	l logger.ExtendedLogger,
 	conf *config.Config,
 	st store.IStore,
 	bs baseservices.IBaseServices,
+	extraWorkers ...WorkerWithRiverClient,
 ) (*TaskManager, error) {
 	var periodicJobs []*river.PeriodicJob
 
@@ -40,6 +49,12 @@ func New(
 		bs:     bs,
 	})
 
+	for _, w := range extraWorkers {
+		if err := w.Register(workers); err != nil {
+			return nil, fmt.Errorf("register worker: %w", err)
+		}
+	}
+
 	if conf.Webhooks.Cleanup.Enabled {
 		river.AddWorker(workers, &WebhookCleanupWorker{
 			logger: l,
@@ -56,16 +71,30 @@ func New(
 		periodicJobs = append(periodicJobs, cr)
 	}
 
+	queues := map[string]river.QueueConfig{
+		river.QueueDefault: {MaxWorkers: 50},
+	}
+	for _, w := range extraWorkers {
+		for name, q := range w.Queues() {
+			if _, ok := queues[name]; ok {
+				return nil, fmt.Errorf("queue %q is already configured", name)
+			}
+			queues[name] = q
+		}
+	}
+
 	riverClient, err := river.NewClient(riverpgxv5.New(st.PSQLConn()), &river.Config{
-		Queues: map[string]river.QueueConfig{
-			river.QueueDefault: {MaxWorkers: 50},
-		},
+		Queues:       queues,
 		Workers:      workers,
 		Logger:       newLogger(l),
 		PeriodicJobs: periodicJobs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("init river client: %w", err)
+	}
+
+	for _, w := range extraWorkers {
+		w.SetRiverClient(riverClient)
 	}
 
 	return &TaskManager{

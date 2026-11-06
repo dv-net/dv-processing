@@ -9,6 +9,7 @@ import (
 	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/internal/models"
 	"github.com/dv-net/dv-processing/internal/services/webhooks/whevents"
+	"github.com/dv-net/dv-processing/internal/store/repos"
 	"github.com/dv-net/dv-processing/internal/store/storecmn"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/wconstants"
 	"github.com/google/uuid"
@@ -43,7 +44,10 @@ type EventTransactionCreateParamsData struct {
 }
 
 // EventTransactionCreateParams returns create params for a transaction event.
-func (s *Service) EventTransactionCreateParams(ctx context.Context, params EventTransactionCreateParamsData) (BatchCreateParams, error) {
+// EventTransactionCreateParams builds webhook params for a transaction event.
+// opts (e.g. repos.WithTx) run the lookups on the caller's connection, so a
+// caller holding a transaction does not wait for a second pool connection.
+func (s *Service) EventTransactionCreateParams(ctx context.Context, params EventTransactionCreateParamsData, opts ...repos.Option) (BatchCreateParams, error) {
 	payloadParams := whevents.EventTransactionPayload{
 		Kind:          params.WebhookKind,
 		IsSystem:      params.IsSystem,
@@ -97,7 +101,7 @@ func (s *Service) EventTransactionCreateParams(ctx context.Context, params Event
 
 	// set request id for transfer
 	if payloadParams.Kind == models.WebhookKindTransfer {
-		transfer, err := s.transfersService.GetByTxHashAndOwnerID(ctx, params.Tx.Hash, params.OwnerID)
+		transfer, err := s.transfersService.GetByTxHashAndOwnerID(ctx, params.Tx.Hash, params.OwnerID, opts...)
 		if err != nil && !errors.Is(err, storecmn.ErrNotFound) {
 			return BatchCreateParams{}, fmt.Errorf("get transfer by tx hash and owner id: %w", err)
 		}
@@ -113,7 +117,7 @@ func (s *Service) EventTransactionCreateParams(ctx context.Context, params Event
 	}
 
 	// get owner
-	owner, err := s.ownersService.GetByID(ctx, params.OwnerID)
+	owner, err := s.ownersService.GetByID(ctx, params.OwnerID, opts...)
 	if err != nil {
 		return BatchCreateParams{}, fmt.Errorf("get owner: %w", err)
 	}

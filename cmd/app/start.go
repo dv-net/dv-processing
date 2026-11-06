@@ -149,8 +149,11 @@ func startCMD() *cli.Command { //nolint:funlen
 				return fmt.Errorf("encrypt mnemonics for all owners: %w", err)
 			}
 
+			// init address backfill worker
+			bfWorker := escanner.NewAddressBackfillWorker(l, conf.Blockchain, st, baseSvc, baseSvc.Wallets().SDK())
+
 			// init task manager
-			tm, err := taskmanager.New(l, conf, st, baseSvc)
+			tm, err := taskmanager.New(l, conf, st, baseSvc, bfWorker)
 			if err != nil {
 				return fmt.Errorf("init task manager service: %w", err)
 			}

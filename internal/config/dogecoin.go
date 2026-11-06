@@ -13,7 +13,7 @@ import (
 type DogecoinBlockchain struct {
 	Enabled                 bool   `json:"enabled" default:"false"`
 	Network                 string `yaml:"network" json:"network" validate:"required,oneof=mainnet testnet" default:"mainnet" example:"mainnet / testnet"`
-	BackfillThresholdBlocks int64  `yaml:"backfill_threshold_blocks" json:"backfill_threshold_blocks" default:"0"`
+	BackfillThresholdBlocks int64  `yaml:"backfill_threshold_blocks" json:"backfill_threshold_blocks" default:"2880"`
 	Attributes              struct {
 		FeePerByte    int64 `yaml:"fee_per_byte" json:"fee_per_byte" default:"50000" usage:"max fee per byte for transfers from hot wallets, also used when the node has no fee estimate"`
 		MinUTXOAmount int64 `yaml:"min_utxo_amount" json:"min_utxo_amount" default:"0" usage:"min UTXO amount in satoshi"`

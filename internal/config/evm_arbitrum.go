@@ -5,7 +5,7 @@ import "fmt"
 type ArbitrumBlockchain struct {
 	Enabled                 bool   `json:"enabled" default:"false"`
 	Network                 string `yaml:"network" json:"network" validate:"required,oneof=mainnet testnet" default:"mainnet" example:"mainnet / testnet"`
-	BackfillThresholdBlocks int64  `yaml:"backfill_threshold_blocks" json:"backfill_threshold_blocks" default:"0"`
+	BackfillThresholdBlocks int64  `yaml:"backfill_threshold_blocks" json:"backfill_threshold_blocks" default:"691200"`
 	Node                    struct {
 		Address string `json:"address" yaml:"address" usage:"node address"`
 	}

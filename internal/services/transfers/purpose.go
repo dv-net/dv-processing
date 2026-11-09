@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -143,11 +144,35 @@ func (s *Service) verifyRefundSource(ctx context.Context, req *CreateTransferReq
 	}
 
 	fromAddress := req.FromAddresses[0]
+	deposited, senders := depositAndSenders(req.Blockchain, tx, fromAddress, req.AssetIdentifier)
+
+	if !deposited.IsPositive() {
+		return nil, invalid("source tx %s has no deposit of %s to %s", tx.Hash, req.AssetIdentifier, fromAddress)
+	}
+
+	if req.Amount.Decimal.GreaterThan(deposited) {
+		return nil, invalid("refund amount %s exceeds deposited amount %s", req.Amount.Decimal, deposited)
+	}
+
+	return senders, nil
+}
+
+// depositAndSenders sums the deposit of the asset to the address and collects the deposit senders.
+//
+// Account based blockchains: the sender of the tx and the senders of the transfers to the address.
+// Btc like blockchains: the inputs are separate events with the sender only, so every input
+// address is a sender (one tx may spend inputs of several addresses).
+func depositAndSenders(
+	blockchain wconstants.BlockchainType,
+	tx *transactionsv2.Transaction,
+	address, assetIdentifier string,
+) (decimal.Decimal, []string) {
 	deposited := decimal.Zero
 	senders := make([]string, 0, 2)
 	if tx.GetAddressFrom() != "" {
 		senders = append(senders, tx.GetAddressFrom())
 	}
+
 	for _, ev := range tx.GetEvents() {
 		if ev.Type == nil || *ev.Type != transactionsv2.EventType_EVENT_TYPE_TRANSFER {
 			continue
@@ -155,10 +180,18 @@ func (s *Service) verifyRefundSource(ctx context.Context, req *CreateTransferReq
 		if ev.Status != nil && *ev.Status != transactionsv2.EventStatus_EVENT_STATUS_SUCCESS {
 			continue
 		}
-		if !strings.EqualFold(ev.GetAddressTo(), fromAddress) {
+
+		if blockchain.IsBitcoinLike() && ev.GetAddressTo() == "" {
+			if ev.GetAddressFrom() != "" && !slices.Contains(senders, ev.GetAddressFrom()) {
+				senders = append(senders, ev.GetAddressFrom())
+			}
 			continue
 		}
-		if !strings.EqualFold(ev.GetAssetIdentifier(), req.AssetIdentifier) {
+
+		if !strings.EqualFold(ev.GetAddressTo(), address) {
+			continue
+		}
+		if !strings.EqualFold(ev.GetAssetIdentifier(), assetIdentifier) {
 			continue
 		}
 
@@ -173,15 +206,7 @@ func (s *Service) verifyRefundSource(ctx context.Context, req *CreateTransferReq
 		}
 	}
 
-	if !deposited.IsPositive() {
-		return nil, invalid("source tx %s has no deposit of %s to %s", tx.Hash, req.AssetIdentifier, fromAddress)
-	}
-
-	if req.Amount.Decimal.GreaterThan(deposited) {
-		return nil, invalid("refund amount %s exceeds deposited amount %s", req.Amount.Decimal, deposited)
-	}
-
-	return senders, nil
+	return deposited, senders
 }
 
 // resolveWalletTo sets the destination wallet type. An address which does not belong

@@ -85,6 +85,9 @@ func (o *ResourceManager) Validate() error {
 }
 
 func (c *Config) SetDefaults() {
+	// listen only on loopback by default; override via config or PROCESSING_GRPC_ADDR
+	c.Grpc.Addr = "127.0.0.1:9000"
+
 	c.Blockchain.EScanner.BlocksInChunk = 20
 
 	c.ExplorerProxy.Addr = "https://explorer-proxy.dv.net"

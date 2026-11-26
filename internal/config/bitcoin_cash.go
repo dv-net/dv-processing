@@ -18,8 +18,8 @@ type BitcoinCashBlockchain struct {
 	}
 	Node struct {
 		Address string `usage:"node address"`
-		Login   string `yaml:"login" json:"login" secret:"true" usage:"node login"`
-		Secret  string `secret:"true"`
+		Login   string `yaml:"login" json:"login" secret:"true" usage:"node login (optional)"`
+		Secret  string `secret:"true" usage:"node password (optional)"`
 		UseTLS  bool   `yaml:"use_tls" json:"use_tls" default:"true" usage:"use TLS for connection"`
 	}
 }
@@ -32,11 +32,8 @@ func (s BitcoinCashBlockchain) Validate() error {
 	if s.Node.Address == "" {
 		return fmt.Errorf("bitcoin cash: node address must not be empty")
 	}
-	if s.Node.Login == "" {
-		return fmt.Errorf("bitcoin cash: node login must not be empty")
-	}
-	if s.Node.Secret == "" {
-		return fmt.Errorf("bitcoin cash: node password must not be empty")
+	if err := validateBTCLikeNodeAuth("bitcoin cash", s.Node.Login, s.Node.Secret); err != nil {
+		return err
 	}
 
 	if s.Attributes.FeePerByte < 0 {
@@ -51,13 +48,15 @@ func (s BitcoinCashBlockchain) Validate() error {
 }
 
 func (s BitcoinCashBlockchain) ConvertToSDKConfig(_ constants.ProcessingIdentity) bch.Config {
+	user, pass := btcLikeRPCAuth(s.Node.Login, s.Node.Secret)
+
 	return bch.Config{
 		RPCConfig: &rpcclient.ConnConfig{
 			Host:         s.Node.Address,
 			HTTPPostMode: true,
 			DisableTLS:   !s.Node.UseTLS,
-			User:         s.Node.Login,
-			Pass:         s.Node.Secret,
+			User:         user,
+			Pass:         pass,
 		},
 	}
 }

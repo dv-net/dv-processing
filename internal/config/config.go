@@ -1,4 +1,3 @@
-//nolint:goconst
 package config
 
 import (
@@ -121,25 +120,17 @@ func (c *Config) SetDefaults() {
 
 	c.Blockchain.Bitcoin.Enabled = true
 	c.Blockchain.Bitcoin.Node.Address = "node-btc.dv.net:443"
-	c.Blockchain.Bitcoin.Node.Login = "rpc"
-	c.Blockchain.Bitcoin.Node.Secret = "qh1lFWjT4UPlY0kN"
 	c.Blockchain.Bitcoin.Node.UseTLS = true
 
 	c.Blockchain.BitcoinCash.Enabled = true
 	c.Blockchain.BitcoinCash.Node.Address = "node-bch.dv.net"
-	c.Blockchain.BitcoinCash.Node.Login = "rpc"
-	c.Blockchain.BitcoinCash.Node.Secret = "qh1lFWjT4UPlY0kN"
 	c.Blockchain.BitcoinCash.Node.UseTLS = true
 
 	c.Blockchain.Litecoin.Enabled = true
 	c.Blockchain.Litecoin.Node.Address = "node-ltc.dv.net"
-	c.Blockchain.Litecoin.Node.Login = "rpc"
-	c.Blockchain.Litecoin.Node.Secret = "qh1lFWjT4UPlY0kN"
 	c.Blockchain.Litecoin.Node.UseTLS = true
 
 	c.Blockchain.Dogecoin.Enabled = true
 	c.Blockchain.Dogecoin.Node.Address = "node-doge.dv.net:443"
-	c.Blockchain.Dogecoin.Node.Login = "rpc"
-	c.Blockchain.Dogecoin.Node.Secret = "qh1lFWjT4UPlY0kN"
 	c.Blockchain.Dogecoin.Node.UseTLS = true
 }

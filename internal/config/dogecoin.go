@@ -20,8 +20,8 @@ type DogecoinBlockchain struct {
 	}
 	Node struct {
 		Address string `usage:"node address"`
-		Login   string `yaml:"login" json:"login" secret:"" usage:"node login"`
-		Secret  string `secret:""`
+		Login   string `yaml:"login" json:"login" secret:"" usage:"node login (optional)"`
+		Secret  string `secret:"" usage:"node password (optional)"`
 		UseTLS  bool   `yaml:"use_tls" json:"use_tls" default:"true" usage:"use TLS for connection"`
 	}
 }
@@ -34,11 +34,8 @@ func (s DogecoinBlockchain) Validate() error {
 	if s.Node.Address == "" {
 		return fmt.Errorf("dogecoin: node address must not be empty")
 	}
-	if s.Node.Login == "" {
-		return fmt.Errorf("dogecoin: node login must not be empty")
-	}
-	if s.Node.Secret == "" {
-		return fmt.Errorf("dogecoin: node password must not be empty")
+	if err := validateBTCLikeNodeAuth("dogecoin", s.Node.Login, s.Node.Secret); err != nil {
+		return err
 	}
 
 	if s.Attributes.FeePerByte < 0 {
@@ -53,6 +50,8 @@ func (s DogecoinBlockchain) Validate() error {
 }
 
 func (s DogecoinBlockchain) ConvertToSDKConfig(identity constants.ProcessingIdentity) doge.Config {
+	user, pass := btcLikeRPCAuth(s.Node.Login, s.Node.Secret)
+
 	return doge.Config{
 		RPCConfig: &rpcclient.ConnConfig{
 			ExtraHeaders: map[string]string{
@@ -62,8 +61,8 @@ func (s DogecoinBlockchain) ConvertToSDKConfig(identity constants.ProcessingIden
 			Host:         s.Node.Address,
 			HTTPPostMode: true,
 			DisableTLS:   !s.Node.UseTLS,
-			User:         s.Node.Login,
-			Pass:         s.Node.Secret,
+			User:         user,
+			Pass:         pass,
 		},
 	}
 }

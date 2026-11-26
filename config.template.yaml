@@ -109,8 +109,8 @@ blockchain:
       min_utxo_amount: 0
     node:
       address: node-btc.dv.net:443
-      login: rpc
-      secret: qh1lFWjT4UPlY0kN
+      login: ""
+      secret: ""
       use_tls: true
   litecoin:
     enabled: true
@@ -121,8 +121,8 @@ blockchain:
       min_utxo_amount: 0
     node:
       address: node-ltc.dv.net
-      login: rpc
-      secret: qh1lFWjT4UPlY0kN
+      login: ""
+      secret: ""
       use_tls: true
   bitcoin_cash:
     enabled: true
@@ -133,8 +133,8 @@ blockchain:
       min_utxo_amount: 0
     node:
       address: node-bch.dv.net
-      login: rpc
-      secret: qh1lFWjT4UPlY0kN
+      login: ""
+      secret: ""
       use_tls: true
   dogecoin:
     enabled: true
@@ -145,8 +145,8 @@ blockchain:
       min_utxo_amount: 0
     node:
       address: node-doge.dv.net:443
-      login: rpc
-      secret: qh1lFWjT4UPlY0kN
+      login: ""
+      secret: ""
       use_tls: true
 resource_manager:
   enabled: true

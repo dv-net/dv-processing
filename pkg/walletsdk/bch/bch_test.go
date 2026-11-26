@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gcash/bchd/rpcclient"
-
 	"github.com/dv-net/dv-processing/internal/config"
+	"github.com/dv-net/dv-processing/internal/constants"
 	"github.com/dv-net/dv-processing/pkg/testutils"
 	"github.com/dv-net/dv-processing/pkg/walletsdk"
 	"github.com/dv-net/dv-processing/pkg/walletsdk/bch"
@@ -46,15 +45,7 @@ func initClient(conf *config.Config) (*bch.BCH, error) {
 		},
 	})
 
-	c := bch.Config{
-		RPCConfig: &rpcclient.ConnConfig{
-			Host:         conf.Blockchain.BitcoinCash.Node.Address,
-			HTTPPostMode: true,
-			DisableTLS:   !conf.Blockchain.BitcoinCash.Node.UseTLS,
-			User:         conf.Blockchain.BitcoinCash.Node.Login,
-			Pass:         conf.Blockchain.BitcoinCash.Node.Secret,
-		},
-	}
+	c := conf.Blockchain.BitcoinCash.ConvertToSDKConfig(constants.ProcessingIdentity{})
 
 	cl, err := bch.NewBCH(c, sdk.BCH)
 	if err != nil {

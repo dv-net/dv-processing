@@ -23,6 +23,9 @@ COPY --from=build /app/.bin/dv-processing /app/
 COPY ./artifacts/scripts/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
+# inside the container listen on all interfaces so port publishing works
+ENV PROCESSING_GRPC_ADDR=:9000
+
 EXPOSE 9000
 
 CMD ["/app/start.sh"]

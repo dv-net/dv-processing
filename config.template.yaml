@@ -36,7 +36,7 @@ postgres:
   max_conns: 30
 grpc:
   enabled: true
-  addr: :9000
+  addr: 127.0.0.1:9000
   reflect_enabled: false
 explorer_proxy:
   name: explorer-proxy-client
